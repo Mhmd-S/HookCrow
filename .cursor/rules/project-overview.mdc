@@ -1,0 +1,88 @@
+---
+description: "Project architecture, UI framework guidelines, and development setup for Nuxt 4 Video Anatomizer application"
+alwaysApply: true
+---
+
+# Project Overview
+
+This is a Nuxt 4 **Video Anatomizer** application - a "Mobbin for Video" tool that breaks down short-form videos into structured, reusable templates.
+
+## Development Commands
+
+```bash
+pnpm dev          # Start development server
+pnpm build        # Build for production
+pnpm generate     # Generate static site
+pnpm preview      # Preview production build
+```
+
+## Architecture
+
+### Key Directories
+- `app/pages/` - Route pages (dashboard, anatomize, view)
+- `app/components/` - Reusable Vue components (video/, anatomy/, viewer/)
+- `app/composables/` - Data fetching hooks (useVideos, useSegments, useLogicFlows, useSupabase)
+- `app/types/` - TypeScript types and constants
+- `supabase/schema.sql` - Database schema (run in Supabase SQL Editor)
+
+### Main Pages
+- `/` - Dashboard listing all videos
+- `/anatomize` - Upload new video
+- `/anatomize/[id]` - Edit video anatomy (segments, scripts, tags)
+- `/view/[id]` - View template with copyable blueprints
+
+### Data Model
+- **videos** - Main content with metadata, scripts, and tags
+- **segments** - Time-based sections (Hook, Bridge, Value, CTA)
+- **logic_flows** - Skeleton types (PAS, Listicle, etc.)
+
+## UI Framework
+
+Uses `@nuxt/ui` v4 with Tailwind CSS 4. Key configuration:
+- Primary color: indigo
+- Icons: Phosphor icons (prefix: `i-ph-*`)
+- Custom border radius: `--ui-radius: 0.125rem`
+- Font: Geist
+- Theme: Light only (configured in `nuxt.config.ts`)
+- Docs at https://ui.nuxt.com/llms.txt
+
+Icon usage example: `<UIcon name="i-ph-check" />`
+
+### CSS Variables (Design Tokens)
+
+Use Nuxt UI's CSS variable classes instead of hardcoded Tailwind colors:
+
+**Background colors:**
+- `bg-default` - Main background (white in light mode)
+- `bg-muted` - Subtle background for containers
+- `bg-elevated` - Elevated surfaces
+- `bg-accented` - Accented backgrounds
+- `bg-inverted` - Inverted background
+
+**Text colors:**
+- `text-default` - Default text
+- `text-muted` - Secondary/muted text
+- `text-dimmed` - Dimmed text
+- `text-toned` - Toned text
+- `text-highlighted` - Emphasized text
+- `text-inverted` - Inverted text
+
+**Semantic colors:**
+- `text-primary`, `bg-primary` - Primary brand color
+- `text-success`, `text-error`, `text-warning`, `text-info` - Status colors
+
+**Border colors:**
+- `border-default` - Default borders
+- `border-muted` - Subtle borders
+- `border-accented` - Accented borders
+
+## Key Dependencies
+
+- **@supabase/supabase-js** - Database and file storage
+- **openai** - AI/LLM integration (for future auto-transcription)
+
+## Supabase Setup
+
+1. Create `.env` file with `SUPABASE_URL` and `SUPABASE_ANON_KEY`
+2. Run `supabase/schema.sql` in Supabase SQL Editor
+3. Create a storage bucket named `videos` with public access
