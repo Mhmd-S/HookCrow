@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Segment, VideoWithSegments, VideoUpdate, SegmentInsert, LogicFlow, Video } from '~/types'
+import type { Segment, VideoWithSegments, VideoUpdate, SegmentInsert, Video, SkeletalLogicAnalysis, VideoAudioAnalysis } from '~/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,11 +13,15 @@ const { logicFlows, fetchLogicFlows } = useLogicFlows()
 const { videos: libraryVideos, loadLibrary, refreshVideos } = useLibrary()
 
 const video = ref<VideoWithSegments | null>(null)
+const semanticTags = ref<string[]>([])
 const segments = ref<Segment[]>([])
 const loading = ref(true)
 const saving = ref(false)
 const transcribing = ref(false)
 const generatingAll = ref(false)
+const reprocessing = ref(false)
+const analyzingAudio = ref(false)
+const analyzingSkeletalLogic = ref(false)
 const error = ref<string | null>(null)
 const successMessage = ref<string | null>(null)
 
@@ -31,12 +35,6 @@ let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 const currentTime = ref(0)
 const duration = ref(0)
 const activeSegmentIndex = ref<number | null>(null)
-
-// Markdown sync
-const { markdown, parseErrors, initFromSegments, applyTemplate } = useMarkdownSync(
-  segments,
-  { videoId, debounceMs: 300 }
-)
 
 // Library panel state
 const showLibrary = ref(true)
@@ -54,14 +52,10 @@ async function loadVideo() {
     return
   }
 
-  video.value = data
+  video.value = data as VideoWithSegments
   segments.value = data.segments || []
+  semanticTags.value = data.semantic_tags || []
   loading.value = false
-
-  // Initialize markdown from segments after a tick
-  nextTick(() => {
-    initFromSegments()
-  })
 }
 
 // Debounced auto-save
@@ -89,12 +83,13 @@ async function handleSave(isAutoSave = false) {
   if (!isAutoSave) successMessage.value = null
 
   try {
-    const videoUpdates: VideoUpdate = {
+    const videoUpdates: VideoUpdate & { semantic_tags?: string[] } = {
       creator_handle: video.value.creator_handle,
       platform: video.value.platform,
       source_url: video.value.source_url,
       logic_flow_id: video.value.logic_flow_id,
-      status: video.value.status
+      status: video.value.status,
+      semantic_tags: semanticTags.value
     }
 
     const { error: updateErr } = await updateVideo(videoId, videoUpdates)
@@ -246,6 +241,128 @@ async function handleGenerateAll() {
   }
 }
 
+async function handleReprocess() {
+  if (!video.value) return
+
+  reprocessing.value = true
+  error.value = null
+
+  try {
+    const result = await $fetch<{
+      success: boolean
+      logicFlowId: string | null
+      logicFlowName: string | null
+      segmentCount: number
+    }>('/api/process-video', {
+      method: 'POST',
+      body: { videoId }
+    })
+
+    if (result.success) {
+      // Reload the video to get updated data
+      await loadVideo()
+      successMessage.value = `Re-processed: ${result.logicFlowName || 'Uncategorized'} with ${result.segmentCount} segments`
+      setTimeout(() => (successMessage.value = null), 3000)
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Re-processing failed'
+  } finally {
+    reprocessing.value = false
+  }
+}
+
+async function handleAnalyzeAudio() {
+  if (!video.value) return
+
+  analyzingAudio.value = true
+  error.value = null
+
+  try {
+    const result = await $fetch<{
+      success: boolean
+      audioAnalysis: VideoAudioAnalysis
+    }>('/api/analyze-audio', {
+      method: 'POST',
+      body: { videoId }
+    })
+
+    if (result.success && video.value) {
+      ;(video.value as unknown as { audio_analysis?: VideoAudioAnalysis | null }).audio_analysis = result.audioAnalysis
+      successMessage.value = 'Audio analysis complete!'
+      setTimeout(() => (successMessage.value = null), 3000)
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Audio analysis failed'
+  } finally {
+    analyzingAudio.value = false
+  }
+}
+
+function buildFullTranscriptFromSegments(segs: Segment[]): string {
+  return segs
+    .map((s) => (s.transcript_raw || '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+}
+
+async function handleGenerateSkeletalLogic() {
+  if (!video.value) return
+
+  const transcript = buildFullTranscriptFromSegments(segments.value)
+  if (!transcript) {
+    error.value = 'Transcribe the video first to generate skeletal logic'
+    return
+  }
+
+  analyzingSkeletalLogic.value = true
+  error.value = null
+
+  try {
+    const result = await $fetch<SkeletalLogicAnalysis>('/api/generate-skeletal-logic', {
+      method: 'POST',
+      body: {
+        transcript,
+        segments: segments.value.map((s) => ({
+          label: s.label,
+          start_time: s.start_time,
+          end_time: s.end_time,
+          transcript_raw: s.transcript_raw || ''
+        })),
+        logicFlowType: currentLogicFlowName.value || undefined
+      }
+    })
+
+    const { error: updateErr } = await updateVideo(videoId, {
+      skeletal_logic: result as unknown as VideoUpdate['skeletal_logic']
+    } as VideoUpdate)
+    if (updateErr) throw updateErr
+
+    video.value.skeletal_logic = result as unknown as VideoUpdate['skeletal_logic']
+    successMessage.value = 'Skeletal logic analysis complete!'
+    setTimeout(() => (successMessage.value = null), 3000)
+  } catch (err) {
+    error.value =
+      err instanceof Error ? err.message : 'Failed to generate skeletal logic'
+  } finally {
+    analyzingSkeletalLogic.value = false
+  }
+}
+
+// Get the current logic flow name
+const currentLogicFlowName = computed(() => {
+  if (!video.value?.logic_flow_id) return null
+  const flow = logicFlows.value.find(lf => lf.id === video.value?.logic_flow_id)
+  return flow?.name || null
+})
+
+const logicFlowShortName = computed(() => {
+  if (!currentLogicFlowName.value) return null
+  const match = currentLogicFlowName.value.match(/^([^(]+)/)
+  const base = match?.[1]
+  return base ? base.trim() : currentLogicFlowName.value
+})
+
 function handleTimeUpdate(time: number) {
   currentTime.value = time
   const index = segments.value.findIndex(
@@ -275,17 +392,6 @@ function handleSelectVideo(selectedVideo: Video) {
   }
 }
 
-// Handle template application from editor
-function handleEditorApplyTemplate(template: LogicFlow) {
-  if (template.template_markdown) {
-    applyTemplate(template.template_markdown, duration.value)
-    if (video.value) {
-      video.value.logic_flow_id = template.id
-    }
-    scheduleAutoSave()
-  }
-}
-
 // Watch for changes to trigger auto-save
 watch(
   segments,
@@ -308,6 +414,22 @@ watch(
     if (!loading.value && video.value) scheduleAutoSave()
   }
 )
+
+watch(
+  semanticTags,
+  () => {
+    if (!loading.value && video.value) scheduleAutoSave()
+  },
+  { deep: true }
+)
+
+// Compute full transcript for tag suggestions
+const fullTranscript = computed(() => {
+  return segments.value
+    .map(s => s.transcript_raw)
+    .filter(Boolean)
+    .join(' ')
+})
 
 onUnmounted(() => {
   if (autoSaveTimer) clearTimeout(autoSaveTimer)
@@ -355,6 +477,42 @@ const videoTitle = computed(() => video.value?.creator_handle || 'Untitled Video
         >
           {{ video.status === 'complete' ? 'Complete' : 'Draft' }}
         </UBadge>
+        <UBadge
+          v-if="logicFlowShortName"
+          color="primary"
+          variant="solid"
+          size="xs"
+        >
+          {{ logicFlowShortName }}
+        </UBadge>
+        <UBadge
+          v-else-if="video && !video.logic_flow_id"
+          color="neutral"
+          variant="subtle"
+          size="xs"
+        >
+          Uncategorized
+        </UBadge>
+
+        <!-- Semantic Tags (inline display) -->
+        <template v-if="semanticTags.length > 0">
+          <span class="text-dimmed">|</span>
+          <UBadge
+            v-for="tag in semanticTags.slice(0, 3)"
+            :key="tag"
+            color="neutral"
+            variant="outline"
+            size="xs"
+          >
+            {{ tag }}
+          </UBadge>
+          <span
+            v-if="semanticTags.length > 3"
+            class="text-xs text-muted"
+          >
+            +{{ semanticTags.length - 3 }} more
+          </span>
+        </template>
       </div>
 
       <div class="flex items-center gap-3">
@@ -364,6 +522,15 @@ const videoTitle = computed(() => video.value?.creator_handle || 'Untitled Video
           successMessage
         }}</span>
 
+        <UButton
+          :loading="reprocessing"
+          variant="ghost"
+          icon="i-ph-arrows-clockwise"
+          size="sm"
+          @click="handleReprocess"
+        >
+          Re-process
+        </UButton>
         <UButton
           :to="`/view/${videoId}`"
           variant="ghost"
@@ -420,18 +587,16 @@ const videoTitle = computed(() => video.value?.creator_handle || 'Untitled Video
         />
       </aside>
 
-      <!-- Middle Panel: Markdown Editor -->
+      <!-- Middle Panel: Editor with Toggle Panels -->
       <main class="flex-1 flex flex-col bg-default rounded-lg shadow-sm overflow-hidden">
-        <EditorMarkdown
-          v-model="markdown"
-          :errors="parseErrors"
-          :logic-flows="logicFlows"
-          :selected-logic-flow-id="video.logic_flow_id"
-          :video-title="videoTitle"
+        <EditorPanels
+          :segments="segments"
+          :skeletal-logic="(video.skeletal_logic as unknown as SkeletalLogicAnalysis) || null"
+          :skeletal-logic-generating="analyzingSkeletalLogic"
           :saving="saving"
           :save-status="saveStatus"
-          @update:selected-logic-flow-id="(id: string | null) => (video!.logic_flow_id = id)"
-          @apply-template="handleEditorApplyTemplate"
+          @update:segments="(s: Segment[]) => (segments = s)"
+          @generate-skeletal-logic="handleGenerateSkeletalLogic"
           @save="() => handleSave()"
         />
       </main>
@@ -466,7 +631,7 @@ const videoTitle = computed(() => video.value?.creator_handle || 'Untitled Video
           </UButton>
         </div>
 
-        <div class="flex-1 min-h-0">
+        <div class="flex-1 min-h-0 overflow-y-auto">
           <VideoPreviewPanel
             :video-src="videoUrl"
             :segments="segments"
@@ -474,6 +639,23 @@ const videoTitle = computed(() => video.value?.creator_handle || 'Untitled Video
             @update:current-time="handleTimeUpdate"
             @update:duration="handleDurationChange"
           />
+
+          <!-- Semantic Tags Section -->
+          <div class="p-3 border-t border-muted">
+            <EditorSemanticTags
+              v-model="semanticTags"
+              :transcript="fullTranscript"
+            />
+          </div>
+
+          <!-- Audio Analysis Section -->
+          <div class="p-3 border-t border-muted">
+            <EditorAudioMetadata
+              :audio-analysis="(video as unknown as { audio_analysis?: VideoAudioAnalysis | null })?.audio_analysis || null"
+              :analyzing="analyzingAudio"
+              @analyze="handleAnalyzeAudio"
+            />
+          </div>
         </div>
       </aside>
 

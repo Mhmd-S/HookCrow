@@ -56,6 +56,66 @@ export default defineEventHandler(async (event) => {
     sanitizedData.script_blueprint = body.script_blueprint ? String(body.script_blueprint).slice(0, 50000) : null
   }
 
+  if (body.semantic_tags !== undefined) {
+    if (Array.isArray(body.semantic_tags)) {
+      sanitizedData.semantic_tags = body.semantic_tags
+        .map((t) => sanitizeString(String(t)).slice(0, 60))
+        .filter((t) => t.length > 0)
+        .slice(0, 50)
+    } else if (body.semantic_tags === null) {
+      sanitizedData.semantic_tags = null
+    } else {
+      throw createError({
+        statusCode: 400,
+        message: 'semantic_tags must be an array of strings or null'
+      })
+    }
+  }
+
+  if (body.skeletal_logic !== undefined) {
+    if (body.skeletal_logic === null || typeof body.skeletal_logic === 'object') {
+      try {
+        const jsonSize = JSON.stringify(body.skeletal_logic ?? null).length
+        if (jsonSize > 250000) {
+          throw new Error('skeletal_logic is too large')
+        }
+      } catch (err) {
+        throw createError({
+          statusCode: 400,
+          message: err instanceof Error ? err.message : 'Invalid skeletal_logic JSON'
+        })
+      }
+      sanitizedData.skeletal_logic = body.skeletal_logic as unknown as VideoUpdate['skeletal_logic']
+    } else {
+      throw createError({
+        statusCode: 400,
+        message: 'skeletal_logic must be a JSON object or null'
+      })
+    }
+  }
+
+  if (body.audio_analysis !== undefined) {
+    if (body.audio_analysis === null || typeof body.audio_analysis === 'object') {
+      try {
+        const jsonSize = JSON.stringify(body.audio_analysis ?? null).length
+        if (jsonSize > 250000) {
+          throw new Error('audio_analysis is too large')
+        }
+      } catch (err) {
+        throw createError({
+          statusCode: 400,
+          message: err instanceof Error ? err.message : 'Invalid audio_analysis JSON'
+        })
+      }
+      sanitizedData.audio_analysis = body.audio_analysis as unknown as VideoUpdate['audio_analysis']
+    } else {
+      throw createError({
+        statusCode: 400,
+        message: 'audio_analysis must be a JSON object or null'
+      })
+    }
+  }
+
   if (body.status !== undefined) {
     sanitizedData.status = validateEnum(body.status, 'status', VIDEO_STATUSES)
   }

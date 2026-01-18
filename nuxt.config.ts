@@ -9,6 +9,8 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     openaiApiKey: process.env.OPENAI_API_KEY,
+    replicateApiToken: process.env.REPLICATE_API_TOKEN,
+    auddApiToken: process.env.AUDD_API_TOKEN,
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseKey: process.env.SUPABASE_KEY

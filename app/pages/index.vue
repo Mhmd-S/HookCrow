@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import type { Video, VideoStatus } from '~/types'
+import type { Video, VideoStatus, LogicFlow } from '~/types'
 
 const { fetchVideos, deleteVideo, getVideoUrl } = useVideos()
+const { logicFlows, fetchLogicFlows } = useLogicFlows()
 
 const videos = ref<Video[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const statusFilter = ref<VideoStatus | 'all'>('all')
+const viewMode = ref<'grid' | 'grouped'>('grouped')
 
 async function loadVideos() {
   loading.value = true
+  await fetchLogicFlows()
   const { data, error: err } = await fetchVideos()
   if (err) {
     error.value = err.message
@@ -38,11 +41,52 @@ function formatDate(date: string) {
   })
 }
 
+function getLogicFlowName(logicFlowId: string | null): string | null {
+  if (!logicFlowId) return null
+  const flow = logicFlows.value.find(lf => lf.id === logicFlowId)
+  return flow?.name || null
+}
+
+function getLogicFlowShortName(name: string): string {
+  // Extract the short name from patterns like "PAS (Problem-Agitation-Solution)"
+  const match = name.match(/^([^(]+)/)
+  return match ? match[1].trim() : name
+}
+
 onMounted(loadVideos)
 
 const filteredVideos = computed(() => {
   if (statusFilter.value === 'all') return videos.value
   return videos.value.filter(v => v.status === statusFilter.value)
+})
+
+// Group videos by logic flow
+const groupedVideos = computed(() => {
+  const groups: Array<{ logicFlow: LogicFlow | null; name: string; videos: Video[] }> = []
+
+  // Create groups for each logic flow that has videos
+  logicFlows.value.forEach(lf => {
+    const flowVideos = filteredVideos.value.filter(v => v.logic_flow_id === lf.id)
+    if (flowVideos.length > 0) {
+      groups.push({
+        logicFlow: lf,
+        name: lf.name,
+        videos: flowVideos
+      })
+    }
+  })
+
+  // Add uncategorized group
+  const uncategorized = filteredVideos.value.filter(v => !v.logic_flow_id)
+  if (uncategorized.length > 0) {
+    groups.push({
+      logicFlow: null,
+      name: 'Uncategorized',
+      videos: uncategorized
+    })
+  }
+
+  return groups
 })
 
 const draftCount = computed(() => videos.value.filter(v => v.status === 'draft').length)
@@ -63,31 +107,47 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
         </UButton>
       </div>
 
-      <!-- Filter Tabs -->
-      <div class="flex gap-2 mb-6">
-        <UButton
-          :variant="statusFilter === 'all' ? 'solid' : 'ghost'"
-          size="sm"
-          @click="statusFilter = 'all'"
-        >
-          All ({{ videos.length }})
-        </UButton>
-        <UButton
-          :variant="statusFilter === 'draft' ? 'solid' : 'ghost'"
-          size="sm"
-          color="warning"
-          @click="statusFilter = 'draft'"
-        >
-          Drafts ({{ draftCount }})
-        </UButton>
-        <UButton
-          :variant="statusFilter === 'complete' ? 'solid' : 'ghost'"
-          size="sm"
-          color="success"
-          @click="statusFilter = 'complete'"
-        >
-          Complete ({{ completeCount }})
-        </UButton>
+      <!-- Filter Tabs & View Toggle -->
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex gap-2">
+          <UButton
+            :variant="statusFilter === 'all' ? 'solid' : 'ghost'"
+            size="sm"
+            @click="statusFilter = 'all'"
+          >
+            All ({{ videos.length }})
+          </UButton>
+          <UButton
+            :variant="statusFilter === 'draft' ? 'solid' : 'ghost'"
+            size="sm"
+            color="warning"
+            @click="statusFilter = 'draft'"
+          >
+            Drafts ({{ draftCount }})
+          </UButton>
+          <UButton
+            :variant="statusFilter === 'complete' ? 'solid' : 'ghost'"
+            size="sm"
+            color="success"
+            @click="statusFilter = 'complete'"
+          >
+            Complete ({{ completeCount }})
+          </UButton>
+        </div>
+        <div class="flex gap-1">
+          <UButton
+            :variant="viewMode === 'grouped' ? 'solid' : 'ghost'"
+            size="sm"
+            icon="i-ph-rows"
+            @click="viewMode = 'grouped'"
+          />
+          <UButton
+            :variant="viewMode === 'grid' ? 'solid' : 'ghost'"
+            size="sm"
+            icon="i-ph-grid-four"
+            @click="viewMode = 'grid'"
+          />
+        </div>
       </div>
 
       <!-- Error Alert -->
@@ -108,7 +168,87 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
         </UButton>
       </div>
 
-      <!-- Video Grid -->
+      <!-- Grouped View -->
+      <div v-else-if="viewMode === 'grouped'" class="space-y-8">
+        <div v-for="group in groupedVideos" :key="group.name" class="space-y-4">
+          <!-- Group Header -->
+          <div class="flex items-center gap-3">
+            <h2 class="text-lg font-semibold">
+              {{ group.logicFlow ? getLogicFlowShortName(group.name) : group.name }}
+            </h2>
+            <UBadge size="sm" color="neutral" variant="subtle">
+              {{ group.videos.length }}
+            </UBadge>
+            <p v-if="group.logicFlow?.description" class="text-sm text-muted hidden md:block">
+              {{ group.logicFlow.description }}
+            </p>
+          </div>
+
+          <!-- Videos in Group -->
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <div
+              v-for="video in group.videos"
+              :key="video.id"
+              class="group bg-white dark:bg-neutral-900 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors"
+            >
+              <!-- Thumbnail -->
+              <div class="relative aspect-[9/16] bg-neutral-100 dark:bg-neutral-800">
+                <video
+                  :src="getVideoUrl(video.video_path)"
+                  class="w-full h-full object-cover"
+                  preload="metadata"
+                />
+                <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                  <UIcon
+                    name="i-ph-play-circle"
+                    class="w-10 h-10 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  />
+                </div>
+                <!-- Status Badge -->
+                <div class="absolute top-2 left-2">
+                  <UBadge
+                    :color="video.status === 'complete' ? 'success' : 'warning'"
+                    size="xs"
+                    variant="solid"
+                  >
+                    {{ video.status === 'complete' ? 'Complete' : 'Draft' }}
+                  </UBadge>
+                </div>
+              </div>
+
+              <!-- Info -->
+              <div class="p-3">
+                <p v-if="video.creator_handle" class="text-sm font-medium truncate">{{ video.creator_handle }}</p>
+                <p v-else class="text-sm font-medium truncate text-neutral-400">Untitled</p>
+                <div class="flex items-center justify-between mt-2">
+                  <p class="text-xs text-neutral-400">{{ formatDate(video.created_at) }}</p>
+                  <div class="flex gap-1">
+                    <UButton
+                      :to="`/anatomize/${video.id}`"
+                      size="xs"
+                      variant="ghost"
+                      icon="i-ph-pencil"
+                    />
+                    <UButton
+                      :to="`/view/${video.id}`"
+                      size="xs"
+                      variant="ghost"
+                      icon="i-ph-eye"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty grouped state -->
+        <div v-if="groupedVideos.length === 0 && !loading" class="text-center py-12 text-muted">
+          No videos match the current filter
+        </div>
+      </div>
+
+      <!-- Grid View -->
       <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         <div
           v-for="video in filteredVideos"
@@ -136,6 +276,12 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
                 variant="solid"
               >
                 {{ video.status === 'complete' ? 'Complete' : 'Draft' }}
+              </UBadge>
+            </div>
+            <!-- Logic Flow Badge -->
+            <div v-if="video.logic_flow_id" class="absolute top-2 right-2">
+              <UBadge size="xs" color="primary" variant="solid">
+                {{ getLogicFlowShortName(getLogicFlowName(video.logic_flow_id) || '') }}
               </UBadge>
             </div>
           </div>

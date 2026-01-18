@@ -29,25 +29,18 @@ const emit = defineEmits<{
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const commandPaletteOpen = ref(false)
 
-// Track cursor position to restore after external updates
-const cursorPosition = ref<{ start: number; end: number } | null>(null)
-const isUserTyping = ref(false)
-let typingTimeout: ReturnType<typeof setTimeout> | null = null
+// Local value to prevent cursor jumping during auto-save
+const localValue = ref(props.modelValue)
+const lastEmittedValue = ref(props.modelValue)
 
-// Watch for external value changes and restore cursor
+// Only sync from prop when it's a genuine external change (not our own emit echoing back)
 watch(
     () => props.modelValue,
-    () => {
-        // Only restore cursor if user was recently typing
-        if (isUserTyping.value && cursorPosition.value && textareaRef.value) {
-            nextTick(() => {
-                if (textareaRef.value && cursorPosition.value) {
-                    textareaRef.value.setSelectionRange(
-                        cursorPosition.value.start,
-                        cursorPosition.value.end
-                    )
-                }
-            })
+    (newValue) => {
+        if (newValue !== lastEmittedValue.value) {
+            // This is an external change (e.g., template applied), update local value
+            localValue.value = newValue
+            lastEmittedValue.value = newValue
         }
     }
 )
@@ -78,7 +71,7 @@ defineShortcuts({
 
 // Compute line numbers for display
 const lineCount = computed(() => {
-  return props.modelValue.split('\n').length
+  return localValue.value.split('\n').length
 })
 
 // Map errors by line number for quick lookup
@@ -124,26 +117,17 @@ const statusColor = computed(() => {
   }
 })
 
+// Get currently selected template name
+const selectedTemplateName = computed(() => {
+  if (!props.selectedLogicFlowId) return null
+  const template = props.logicFlows.find((lf) => lf.id === props.selectedLogicFlowId)
+  return template?.name || null
+})
+
 function handleInput(event: Event) {
     const target = event.target as HTMLTextAreaElement
-
-    // Save cursor position before emitting
-    cursorPosition.value = {
-        start: target.selectionStart,
-        end: target.selectionEnd
-    }
-
-    // Mark as typing and clear previous timeout
-    isUserTyping.value = true
-    if (typingTimeout) {
-        clearTimeout(typingTimeout)
-    }
-
-    // Reset typing flag after a delay (longer than debounce)
-    typingTimeout = setTimeout(() => {
-        isUserTyping.value = false
-    }, 500)
-
+    localValue.value = target.value
+    lastEmittedValue.value = target.value
     emit('update:modelValue', target.value)
 }
 
@@ -173,23 +157,15 @@ onMounted(() => {
 
 onUnmounted(() => {
     window.removeEventListener('keydown', handleKeydown)
-    if (typingTimeout) {
-        clearTimeout(typingTimeout)
-    }
 })
 </script>
 
 <template>
   <div class="h-full flex flex-col ">
     <!-- Header -->
-    <div
-      class="flex items-center justify-between p-3 border-b border-muted "
-    >
+    <div class="flex items-center justify-between p-3 border-b border-muted">
+      <!-- Left side: Status + Template Badge -->
       <div class="flex items-center gap-3">
-        <h2 class="text-sm font-semibold ">
-          {{'Script Editor & Skeleton Logic' }}
-        </h2>
-
         <!-- Status Indicator -->
         <div class="flex items-center gap-1">
           <UIcon
@@ -200,6 +176,15 @@ onUnmounted(() => {
           <span class="text-xs" :class="statusColor">
             {{ saveStatus === 'saving' ? 'Saving...' : saveStatus }}
           </span>
+        </div>
+
+        <!-- Template Badge -->
+        <div v-if="selectedTemplateName" class="flex items-center gap-1.5">
+          <span class="text-xs text-dimmed">Template:</span>
+          <UBadge color="primary" variant="subtle" size="sm">
+            <UIcon name="i-ph-file-text" class="w-3 h-3 mr-1" />
+            {{ selectedTemplateName }}
+          </UBadge>
         </div>
       </div>
 
@@ -262,7 +247,7 @@ onUnmounted(() => {
       <div class="flex-1 relative">
         <textarea
           ref="textareaRef"
-          :value="modelValue"
+          :value="localValue"
           class="w-full h-full p-3 bg-transparent text-sm font-mono resize-none focus:outline-none leading-6"
           placeholder="0-3s [Hook]: Grab attention with a bold statement.
             3-8s [Bridge]: Transition to your solution.

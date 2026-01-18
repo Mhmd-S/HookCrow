@@ -46,6 +46,9 @@ export interface Database {
           logic_flow_id: string | null
           script_raw: string | null
           script_blueprint: string | null
+          skeletal_logic: Json | null
+          semantic_tags: string[] | null
+          audio_analysis?: Json | null
           status: 'draft' | 'complete'
           created_at: string
           updated_at: string
@@ -60,6 +63,9 @@ export interface Database {
           logic_flow_id?: string | null
           script_raw?: string | null
           script_blueprint?: string | null
+          skeletal_logic?: Json | null
+          semantic_tags?: string[] | null
+          audio_analysis?: Json | null
           status?: 'draft' | 'complete'
           created_at?: string
           updated_at?: string
@@ -74,6 +80,9 @@ export interface Database {
           logic_flow_id?: string | null
           script_raw?: string | null
           script_blueprint?: string | null
+          skeletal_logic?: Json | null
+          semantic_tags?: string[] | null
+          audio_analysis?: Json | null
           status?: 'draft' | 'complete'
           created_at?: string
           updated_at?: string
@@ -91,6 +100,7 @@ export interface Database {
           script_blueprint: string | null
           visual_notes: string | null
           tags: string[] | null
+          audio_metadata?: Json | null
           created_at: string
         }
         Insert: {
@@ -104,6 +114,7 @@ export interface Database {
           script_blueprint?: string | null
           visual_notes?: string | null
           tags?: string[] | null
+          audio_metadata?: Json | null
           created_at?: string
         }
         Update: {
@@ -117,6 +128,7 @@ export interface Database {
           script_blueprint?: string | null
           visual_notes?: string | null
           tags?: string[] | null
+          audio_metadata?: Json | null
           created_at?: string
         }
       }
