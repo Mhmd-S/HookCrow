@@ -1,6 +1,7 @@
 import type { Database } from './database'
 
 // Database row types
+export type Profile = Database['public']['Tables']['profiles']['Row']
 export type LogicFlow = Database['public']['Tables']['logic_flows']['Row']
 export type Video = Database['public']['Tables']['videos']['Row']
 export type Segment = Database['public']['Tables']['segments']['Row']
@@ -15,10 +16,22 @@ export type LogicFlowUpdate = Database['public']['Tables']['logic_flows']['Updat
 export type VideoUpdate = Database['public']['Tables']['videos']['Update']
 export type SegmentUpdate = Database['public']['Tables']['segments']['Update']
 
+// Auth
+export type UserRole = 'admin' | 'user'
+
 // Video with relations
 export interface VideoWithSegments extends Video {
   segments: Segment[]
   logic_flow?: LogicFlow | null
+}
+
+// Browse
+export interface BrowseFilters {
+  domains: string[]
+  formats: string[]
+  logicFlowId: string | null
+  search: string
+  page: number
 }
 
 // Constants
@@ -171,18 +184,13 @@ export type SoundEffectType = (typeof SOUND_EFFECT_TYPES)[number]
 
 // Audio metadata interfaces
 export interface MusicTrack {
-  title: string
-  artist: string
+  title: string | null
+  artist: string | null
+  genre: string | null
   bpm: number | null
-  mood: string | null
   start_time: number
   end_time: number
   confidence: number
-}
-
-export interface UnidentifiedMusic {
-  start_time: number
-  end_time: number
   description: string
 }
 
@@ -205,7 +213,6 @@ export interface AudioMetadata {
   music: {
     detected: boolean
     tracks: MusicTrack[]
-    unidentified_music: UnidentifiedMusic[]
   }
   sound_effects: SoundEffect[]
   overall: AudioOverall
@@ -219,4 +226,53 @@ export interface VideoAudioAnalysis {
   analyzed_at: string | null
   error: string | null
   metadata: AudioMetadata | null
+}
+
+// ==========================================
+// Visual Analysis Types
+// ==========================================
+
+export type VisualAnalysisStatus = 'pending' | 'processing' | 'completed' | 'failed'
+
+export interface SegmentVisualAnalysis {
+  camera_movements: string[]
+  shot_types: string[]
+  color_grading: {
+    dominant_colors: string[]
+    mood: string
+    style: string
+  }
+  scene_composition: string
+  text_overlays: {
+    detected: boolean
+    items: Array<{
+      text: string
+      style: string
+      position: string
+    }>
+  }
+  transitions: {
+    type: string
+    description: string
+  } | null
+  visual_pacing: string
+  branding_elements: string[]
+  thumbnail_worthy_frames: string[]
+  detected_visual_tags: string[]
+}
+
+export interface VideoVisualOverview {
+  overall_style: string
+  editing_pace: string
+  production_quality: 'low' | 'medium' | 'high' | 'professional'
+  aspect_ratio: string
+  notable_techniques: string[]
+}
+
+export interface VideoVisualAnalysis {
+  status: VisualAnalysisStatus
+  analyzed_at: string | null
+  error: string | null
+  overview: VideoVisualOverview | null
+  segments: SegmentVisualAnalysis[] | null
 }

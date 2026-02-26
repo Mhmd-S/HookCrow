@@ -1,8 +1,10 @@
 <script setup lang="ts">
+definePageMeta({ middleware: ['admin'] })
+
 const router = useRouter()
 
 function handleSuccess(videoId: string) {
-  router.push(`/anatomize/${videoId}`)
+  router.push(`/admin/anatomize/${videoId}`)
 }
 </script>
 
@@ -11,7 +13,7 @@ function handleSuccess(videoId: string) {
     <div class="max-w-3xl mx-auto px-4 py-8">
       <!-- Header -->
       <div class="mb-8">
-        <UButton to="/" variant="ghost" icon="i-ph-arrow-left" class="mb-4">
+        <UButton to="/admin" variant="ghost" icon="i-ph-arrow-left" class="mb-4">
           Back to Dashboard
         </UButton>
         <h1 class="text-2xl font-bold">Upload New Video</h1>

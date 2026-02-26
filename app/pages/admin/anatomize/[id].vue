@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import type { Segment, VideoWithSegments, VideoUpdate, SegmentInsert, Video, SkeletalLogicAnalysis, VideoAudioAnalysis } from '~/types'
+import type { Segment, VideoWithSegments, VideoUpdate, SegmentInsert, Video, SkeletalLogicAnalysis, VideoAudioAnalysis, VideoVisualAnalysis } from '~/types'
+
+definePageMeta({ middleware: ['admin'] })
 
 const route = useRoute()
 const router = useRouter()
@@ -21,6 +23,7 @@ const transcribing = ref(false)
 const generatingAll = ref(false)
 const reprocessing = ref(false)
 const analyzingAudio = ref(false)
+const analyzingVisual = ref(false)
 const analyzingSkeletalLogic = ref(false)
 const error = ref<string | null>(null)
 const successMessage = ref<string | null>(null)
@@ -89,6 +92,8 @@ async function handleSave(isAutoSave = false) {
       source_url: video.value.source_url,
       logic_flow_id: video.value.logic_flow_id,
       status: video.value.status,
+      title: video.value.title,
+      is_published: video.value.is_published,
       semantic_tags: semanticTags.value
     }
 
@@ -259,7 +264,6 @@ async function handleReprocess() {
     })
 
     if (result.success) {
-      // Reload the video to get updated data
       await loadVideo()
       successMessage.value = `Re-processed: ${result.logicFlowName || 'Uncategorized'} with ${result.segmentCount} segments`
       setTimeout(() => (successMessage.value = null), 3000)
@@ -295,6 +299,33 @@ async function handleAnalyzeAudio() {
     error.value = err instanceof Error ? err.message : 'Audio analysis failed'
   } finally {
     analyzingAudio.value = false
+  }
+}
+
+async function handleAnalyzeVisual() {
+  if (!video.value) return
+
+  analyzingVisual.value = true
+  error.value = null
+
+  try {
+    const result = await $fetch<{
+      success: boolean
+      visualAnalysis: VideoVisualAnalysis
+    }>('/api/analyze-visual', {
+      method: 'POST',
+      body: { videoId }
+    })
+
+    if (result.success && video.value) {
+      ;(video.value as unknown as { visual_analysis?: VideoVisualAnalysis | null }).visual_analysis = result.visualAnalysis
+      successMessage.value = 'Visual analysis complete!'
+      setTimeout(() => (successMessage.value = null), 3000)
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Visual analysis failed'
+  } finally {
+    analyzingVisual.value = false
   }
 }
 
@@ -381,14 +412,19 @@ function toggleStatus() {
   scheduleAutoSave()
 }
 
+function togglePublished() {
+  if (!video.value) return
+  video.value.is_published = !video.value.is_published
+  scheduleAutoSave()
+}
+
 // Handle library video selection
 function handleSelectVideo(selectedVideo: Video) {
   if (selectedVideo.id !== videoId) {
-    // Save current work before navigating
     if (hasUnsavedChanges.value) {
       handleSave(true)
     }
-    router.push(`/anatomize/${selectedVideo.id}`)
+    router.push(`/admin/anatomize/${selectedVideo.id}`)
   }
 }
 
@@ -447,7 +483,7 @@ const videoUrl = computed(() =>
   video.value ? getVideoUrl(video.value.video_path) : ''
 )
 
-const videoTitle = computed(() => video.value?.creator_handle || 'Untitled Video')
+const videoTitle = computed(() => video.value?.title || video.value?.creator_handle || 'Untitled Video')
 </script>
 
 <template>
@@ -457,7 +493,7 @@ const videoTitle = computed(() => video.value?.creator_handle || 'Untitled Video
       class="shrink-0 h-12 flex items-center justify-between px-4 border-b border-default"
     >
       <div class="flex items-center gap-3">
-        <UButton to="/" variant="ghost" icon="i-ph-arrow-left" size="sm" />
+        <UButton to="/admin" variant="ghost" icon="i-ph-arrow-left" size="sm" />
         <UButton
           variant="ghost"
           :icon="showLibrary ? 'i-ph-sidebar-simple' : 'i-ph-sidebar-simple'"
@@ -476,6 +512,17 @@ const videoTitle = computed(() => video.value?.creator_handle || 'Untitled Video
           @click="toggleStatus"
         >
           {{ video.status === 'complete' ? 'Complete' : 'Draft' }}
+        </UBadge>
+        <!-- Publish Toggle -->
+        <UBadge
+          v-if="video"
+          :color="video.is_published ? 'success' : 'neutral'"
+          :variant="video.is_published ? 'solid' : 'outline'"
+          size="xs"
+          class="cursor-pointer"
+          @click="togglePublished"
+        >
+          {{ video.is_published ? 'Published' : 'Unpublished' }}
         </UBadge>
         <UBadge
           v-if="logicFlowShortName"
@@ -532,7 +579,7 @@ const videoTitle = computed(() => video.value?.creator_handle || 'Untitled Video
           Re-process
         </UButton>
         <UButton
-          :to="`/view/${videoId}`"
+          :to="`/recipe/${videoId}`"
           variant="ghost"
           icon="i-ph-eye"
           size="sm"
@@ -568,7 +615,7 @@ const videoTitle = computed(() => video.value?.creator_handle || 'Untitled Video
     >
       <div class="text-center max-w-md">
         <UAlert color="error" :title="error" />
-        <UButton to="/" class="mt-4" variant="soft">Back to Dashboard</UButton>
+        <UButton to="/admin" class="mt-4" variant="soft">Back to Dashboard</UButton>
       </div>
     </div>
 
@@ -593,10 +640,13 @@ const videoTitle = computed(() => video.value?.creator_handle || 'Untitled Video
           :segments="segments"
           :skeletal-logic="(video.skeletal_logic as unknown as SkeletalLogicAnalysis) || null"
           :skeletal-logic-generating="analyzingSkeletalLogic"
+          :visual-analysis="(video as unknown as { visual_analysis?: VideoVisualAnalysis | null })?.visual_analysis || null"
+          :visual-analysis-analyzing="analyzingVisual"
           :saving="saving"
           :save-status="saveStatus"
           @update:segments="(s: Segment[]) => (segments = s)"
           @generate-skeletal-logic="handleGenerateSkeletalLogic"
+          @analyze-visual="handleAnalyzeVisual"
           @save="() => handleSave()"
         />
       </main>

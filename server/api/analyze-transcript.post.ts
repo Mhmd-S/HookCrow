@@ -1,5 +1,3 @@
-import OpenAI from 'openai'
-
 interface TranscriptSegment {
   start: number
   end: number
@@ -71,15 +69,7 @@ const LOGIC_FLOW_PATTERNS = [
 ]
 
 export default defineEventHandler(async (event): Promise<AnalyzeResponse> => {
-  const config = useRuntimeConfig()
-
-  if (!config.openaiApiKey) {
-    throw createError({
-      statusCode: 500,
-      message: 'OpenAI API key not configured'
-    })
-  }
-
+  const ai = useServerGemini()
   const body = await readBody<AnalyzeRequest>(event)
 
   if (!body?.transcript || typeof body.transcript !== 'string') {
@@ -106,10 +96,6 @@ export default defineEventHandler(async (event): Promise<AnalyzeResponse> => {
 
   const logicFlowsContext = logicFlows?.map(lf => `- ${lf.name}: ${lf.description}`).join('\n') ||
     LOGIC_FLOW_PATTERNS.map(p => `- ${p.name}: ${p.pattern}`).join('\n')
-
-  const openai = new OpenAI({
-    apiKey: config.openaiApiKey as string
-  })
 
   const systemPrompt = `You are a video content analyst specializing in short-form video structure analysis.
 Your job is to analyze video transcripts and identify the skeletal structure (logic flow) being used.
@@ -165,17 +151,17 @@ Not all labels are required - use only what fits the content.
 Ensure segments cover the full video duration without overlapping.`
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: userPrompt,
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.3,
+        responseMimeType: 'application/json'
+      }
     })
 
-    const content = completion.choices[0]?.message?.content
+    const content = response.text
     if (!content) {
       throw new Error('No response from AI')
     }

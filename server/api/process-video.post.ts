@@ -2,12 +2,6 @@ interface ProcessRequest {
   videoId: string
 }
 
-interface ProcessingStep {
-  step: 'transcribing' | 'analyzing' | 'saving' | 'complete'
-  progress: number
-  message: string
-}
-
 interface ProcessResponse {
   success: boolean
   logicFlowId: string | null
@@ -16,6 +10,7 @@ interface ProcessResponse {
 }
 
 export default defineEventHandler(async (event): Promise<ProcessResponse> => {
+  const ai = useServerGemini()
   const config = useRuntimeConfig()
   const body = await readBody<ProcessRequest>(event)
 
@@ -41,80 +36,84 @@ export default defineEventHandler(async (event): Promise<ProcessResponse> => {
   const supabaseUrl = config.public.supabaseUrl as string
   const videoUrl = `${supabaseUrl}/storage/v1/object/public/videos/${video.video_path}`
 
-  // Step 1: Fetch video and transcribe
-  let transcriptData: {
-    text: string
-    segments: Array<{ start: number; end: number; text: string }>
-  }
-
-  try {
-    // Fetch video file
-    const videoResponse = await fetch(videoUrl)
-    if (!videoResponse.ok) {
-      throw new Error('Failed to fetch video from storage')
-    }
-
-    const videoBlob = await videoResponse.blob()
-
-    // Check file size (25MB limit for Whisper)
-    const maxSize = 25 * 1024 * 1024
-    if (videoBlob.size > maxSize) {
-      throw createError({
-        statusCode: 400,
-        message: 'Video file too large for transcription (max 25MB)'
-      })
-    }
-
-    // Create FormData for transcription
-    const formData = new FormData()
-    const file = new File([videoBlob], 'video.mp4', { type: 'video/mp4' })
-    formData.append('file', file)
-
-    // Call transcribe endpoint internally via OpenAI directly
-    const { default: OpenAI } = await import('openai')
-    const openai = new OpenAI({
-      apiKey: config.openaiApiKey as string
-    })
-
-    const transcription = await openai.audio.transcriptions.create({
-      file: file,
-      model: 'whisper-1',
-      response_format: 'verbose_json',
-      timestamp_granularities: ['segment']
-    })
-
-    transcriptData = {
-      text: transcription.text,
-      segments: transcription.segments?.map(seg => ({
-        start: seg.start,
-        end: seg.end,
-        text: seg.text
-      })) || []
-    }
-  } catch (err) {
-    console.error('Transcription error:', err)
+  // Fetch video file
+  const videoResponse = await fetch(videoUrl)
+  if (!videoResponse.ok) {
     throw createError({
       statusCode: 500,
-      message: err instanceof Error ? err.message : 'Transcription failed'
+      message: 'Failed to fetch video from storage'
     })
   }
 
-  if (!transcriptData.text || transcriptData.segments.length === 0) {
-    throw createError({
-      statusCode: 400,
-      message: 'No speech detected in video'
-    })
-  }
+  const videoBuffer = Buffer.from(await videoResponse.arrayBuffer())
 
-  // Calculate video duration from segments
+  // Fetch existing logic flows for context
+  const { data: logicFlows } = await supabase
+    .from('logic_flows')
+    .select('id, name, description')
+
+  const logicFlowsContext = logicFlows?.map(lf => `- ${lf.name}: ${lf.description}`).join('\n') || ''
+
   const videoDuration = video.duration_seconds ||
-    Math.ceil(transcriptData.segments[transcriptData.segments.length - 1]?.end || 30)
+    Math.ceil(30) // fallback, will be refined by AI
 
-  // Step 2: Analyze transcript
+  // Upload video to Gemini Files API
+  let uploadedFile: { uri: string; mimeType: string; name: string }
+  try {
+    uploadedFile = await uploadVideoToGemini(ai, videoBuffer)
+  } catch (err) {
+    console.error('Video upload error:', err)
+    throw createError({
+      statusCode: 500,
+      message: err instanceof Error ? err.message : 'Failed to upload video for processing'
+    })
+  }
+
+  // Single combined call: transcribe + analyze structure
+  const prompt = `Analyze this short-form video. Perform two tasks:
+
+1. TRANSCRIBE: Transcribe all spoken words with timestamps.
+2. ANALYZE STRUCTURE: Identify the video's content structure pattern.
+
+Available logic flow patterns:
+${logicFlowsContext}
+
+Segment labels: Hook, Bridge, Value, Proof, CTA
+- Hook: The opening that grabs attention (usually first 0-5 seconds)
+- Bridge: The transition that builds context or agitates the problem
+- Value: The main content, solution, or information being delivered
+- Proof: Evidence, results, or social proof
+- CTA: Call to action at the end
+
+When creating script_blueprint, replace specifics with [PLACEHOLDERS]: [PRODUCT], [PAIN POINT], [NUMBER], [RESULT], [TOPIC]
+
+Video duration: ${videoDuration} seconds
+
+Return a JSON object with this exact structure:
+{
+  "transcript": "full transcript text",
+  "logicFlowName": "detected pattern name from the list above",
+  "confidence": 0.0 to 1.0,
+  "segments": [
+    {
+      "label": "Hook|Bridge|Value|Proof|CTA",
+      "start_time": start in seconds,
+      "end_time": end in seconds,
+      "transcript_raw": "exact transcript for this segment",
+      "script_blueprint": "template with [PLACEHOLDERS]"
+    }
+  ]
+}
+
+Group content logically into segments. Not all labels are required - use only what fits.
+Ensure segments cover the full video duration without overlapping.
+If no speech is detected, still analyze the visual structure and return segments with empty transcript_raw.`
+
   let analysisResult: {
     logicFlowId: string | null
     logicFlowName: string
     confidence: number
+    transcript: string
     segments: Array<{
       label: string
       start_time: number
@@ -125,88 +124,28 @@ export default defineEventHandler(async (event): Promise<ProcessResponse> => {
   }
 
   try {
-    // Import and call analyze function directly for efficiency
-    const { default: OpenAI } = await import('openai')
-    const openai = new OpenAI({
-      apiKey: config.openaiApiKey as string
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: {
+        role: 'user',
+        parts: [
+          { fileData: { fileUri: uploadedFile.uri, mimeType: uploadedFile.mimeType } },
+          { text: prompt }
+        ]
+      },
+      config: {
+        temperature: 0.3,
+        responseMimeType: 'application/json'
+      }
     })
 
-    // Fetch existing logic flows
-    const { data: logicFlows } = await supabase
-      .from('logic_flows')
-      .select('id, name, description')
-
-    const logicFlowsContext = logicFlows?.map(lf => `- ${lf.name}: ${lf.description}`).join('\n') || ''
-
-    const systemPrompt = `You are a video content analyst specializing in short-form video structure analysis.
-Your job is to analyze video transcripts and identify the skeletal structure (logic flow) being used.
-
-Available logic flow patterns:
-${logicFlowsContext}
-
-Segment labels to use: Hook, Bridge, Value, Proof, CTA
-
-Guidelines:
-- Hook: The opening that grabs attention (usually first 0-5 seconds)
-- Bridge: The transition that builds context or agitates the problem
-- Value: The main content, solution, or information being delivered
-- Proof: Evidence, results, or social proof
-- CTA: Call to action at the end
-
-When creating script blueprints, replace specific details with [PLACEHOLDERS] in CAPS, like:
-- [PRODUCT] for product names
-- [PAIN POINT] for problems
-- [NUMBER] for statistics
-- [RESULT] for outcomes
-- [TOPIC] for subject matter
-
-Return your analysis as valid JSON.`
-
-    const userPrompt = `Analyze this video transcript and identify the structure:
-
-Full transcript:
-"${transcriptData.text}"
-
-Timestamped segments:
-${transcriptData.segments.map(s => `[${s.start.toFixed(1)}s - ${s.end.toFixed(1)}s]: "${s.text}"`).join('\n')}
-
-Video duration: ${videoDuration} seconds
-
-Return a JSON object with this exact structure:
-{
-  "logicFlowName": "Name of the detected pattern (must match one from the list above)",
-  "confidence": 0.0 to 1.0 confidence score,
-  "segments": [
-    {
-      "label": "Hook|Bridge|Value|Proof|CTA",
-      "start_time": start in seconds,
-      "end_time": end in seconds,
-      "transcript_raw": "exact transcript text for this segment",
-      "script_blueprint": "template version with [PLACEHOLDERS]"
-    }
-  ]
-}
-
-Group the timestamped segments logically into the appropriate labels (Hook, Bridge, Value, Proof, CTA).
-Not all labels are required - use only what fits the content.
-Ensure segments cover the full video duration without overlapping.`
-
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3
-    })
-
-    const content = completion.choices[0]?.message?.content
+    const content = response.text
     if (!content) {
       throw new Error('No response from AI')
     }
 
     const analysis = JSON.parse(content) as {
+      transcript: string
       logicFlowName: string
       confidence: number
       segments: Array<{
@@ -231,19 +170,23 @@ Ensure segments cover the full video duration without overlapping.`
     }
 
     const validLabels = ['Hook', 'Bridge', 'Value', 'Proof', 'CTA']
+    const actualDuration = video.duration_seconds || videoDuration
+
     analysisResult = {
       logicFlowId,
       logicFlowName: analysis.logicFlowName,
       confidence: Math.max(0, Math.min(1, analysis.confidence || 0.5)),
-      segments: analysis.segments
+      transcript: analysis.transcript || '',
+      segments: (analysis.segments || [])
         .filter(seg => validLabels.includes(seg.label))
         .map(seg => ({
           label: seg.label,
           start_time: Math.max(0, seg.start_time),
-          end_time: Math.min(videoDuration, seg.end_time),
+          end_time: Math.min(actualDuration, Math.max(seg.start_time + 0.1, seg.end_time)),
           transcript_raw: seg.transcript_raw || '',
           script_blueprint: seg.script_blueprint || ''
         }))
+        .filter(seg => seg.end_time > seg.start_time)
     }
   } catch (err) {
     console.error('Analysis error:', err)
@@ -253,13 +196,13 @@ Ensure segments cover the full video duration without overlapping.`
     })
   }
 
-  // Step 3: Update video record
+  // Update video record
   const { error: updateError } = await supabase
     .from('videos')
     .update({
       logic_flow_id: analysisResult.logicFlowId,
-      script_raw: transcriptData.text,
-      duration_seconds: videoDuration
+      script_raw: analysisResult.transcript,
+      duration_seconds: video.duration_seconds || videoDuration
     })
     .eq('id', videoId)
 
@@ -271,7 +214,7 @@ Ensure segments cover the full video duration without overlapping.`
     })
   }
 
-  // Step 4: Delete existing segments and insert new ones
+  // Delete existing segments and insert new ones
   const { error: deleteError } = await supabase
     .from('segments')
     .delete()

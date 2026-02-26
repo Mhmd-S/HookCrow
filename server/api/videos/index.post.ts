@@ -30,12 +30,17 @@ export default defineEventHandler(async (event) => {
   // Validate status if provided (defaults to 'draft')
   const status = body.status ? validateEnum(body.status, 'status', VIDEO_STATUSES) : 'draft'
 
+  // Attach user_id if authenticated
+  const user = await getServerUser(event)
+
   const sanitizedData: VideoInsert = {
     video_path: videoPath,
     source_url: sourceUrl,
     logic_flow_id: body.logic_flow_id || null,
     creator_handle: body.creator_handle ? sanitizeString(body.creator_handle).slice(0, 100) : null,
     platform: body.platform || null,
+    user_id: user?.id || null,
+    title: body.title ? sanitizeString(String(body.title)).slice(0, 200) : null,
     status
   }
 

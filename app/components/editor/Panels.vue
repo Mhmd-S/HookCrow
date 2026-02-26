@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Segment, SkeletalLogicAnalysis } from '~/types'
+import type { Segment, SkeletalLogicAnalysis, VideoVisualAnalysis } from '~/types'
 
 interface Props {
   // Transcript Skeleton props
@@ -9,6 +9,10 @@ interface Props {
   skeletalLogic?: SkeletalLogicAnalysis | null
   skeletalLogicGenerating?: boolean
 
+  // Visual analysis props
+  visualAnalysis?: VideoVisualAnalysis | null
+  visualAnalysisAnalyzing?: boolean
+
   // Common props
   saving?: boolean
   saveStatus?: 'saved' | 'saving' | 'unsaved' | 'error'
@@ -17,6 +21,8 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   skeletalLogic: null,
   skeletalLogicGenerating: false,
+  visualAnalysis: null,
+  visualAnalysisAnalyzing: false,
   saving: false,
   saveStatus: 'saved'
 })
@@ -24,10 +30,11 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'update:segments': [segments: Segment[]]
   generateSkeletalLogic: []
+  analyzeVisual: []
   save: []
 }>()
 
-type PanelTab = 'analysis' | 'transcript'
+type PanelTab = 'analysis' | 'transcript' | 'visual'
 const activePanel = ref<PanelTab>(props.skeletalLogic ? 'analysis' : 'transcript')
 
 const tabs = [
@@ -40,6 +47,11 @@ const tabs = [
     id: 'transcript' as const,
     label: 'Transcript Skeleton',
     icon: 'i-ph-text-aa'
+  },
+  {
+    id: 'visual' as const,
+    label: 'Visual Analysis',
+    icon: 'i-ph-eye'
   }
 ]
 </script>
@@ -87,6 +99,15 @@ const tabs = [
         :save-status="saveStatus"
         @update:segments="emit('update:segments', $event)"
         @save="emit('save')"
+      />
+
+      <!-- Visual Analysis Panel -->
+      <EditorVisualAnalysis
+        v-show="activePanel === 'visual'"
+        :visual-analysis="visualAnalysis"
+        :analyzing="visualAnalysisAnalyzing"
+        :segments="segments"
+        @analyze="emit('analyzeVisual')"
       />
     </div>
   </div>

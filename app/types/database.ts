@@ -9,6 +9,32 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          id: string
+          email: string
+          display_name: string | null
+          role: 'admin' | 'user'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          email: string
+          display_name?: string | null
+          role?: 'admin' | 'user'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          display_name?: string | null
+          role?: 'admin' | 'user'
+          created_at?: string
+          updated_at?: string
+        }
+      }
       logic_flows: {
         Row: {
           id: string
@@ -49,6 +75,11 @@ export interface Database {
           skeletal_logic: Json | null
           semantic_tags: string[] | null
           audio_analysis?: Json | null
+          visual_analysis?: Json | null
+          user_id: string | null
+          is_published: boolean
+          title: string | null
+          description: string | null
           status: 'draft' | 'complete'
           created_at: string
           updated_at: string
@@ -66,6 +97,11 @@ export interface Database {
           skeletal_logic?: Json | null
           semantic_tags?: string[] | null
           audio_analysis?: Json | null
+          visual_analysis?: Json | null
+          user_id?: string | null
+          is_published?: boolean
+          title?: string | null
+          description?: string | null
           status?: 'draft' | 'complete'
           created_at?: string
           updated_at?: string
@@ -83,6 +119,11 @@ export interface Database {
           skeletal_logic?: Json | null
           semantic_tags?: string[] | null
           audio_analysis?: Json | null
+          visual_analysis?: Json | null
+          user_id?: string | null
+          is_published?: boolean
+          title?: string | null
+          description?: string | null
           status?: 'draft' | 'complete'
           created_at?: string
           updated_at?: string

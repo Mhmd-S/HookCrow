@@ -5,7 +5,11 @@
       "mcp__ide__getDiagnostics",
       "Bash(pnpm add:*)",
       "Bash(pnpm build:*)",
-      "Bash(pnpm nuxt typecheck:*)"
+      "Bash(pnpm nuxt typecheck:*)",
+      "Bash(pnpm install:*)",
+      "Bash(npx nuxt typecheck)",
+      "Bash(npx nuxt build)",
+      "Bash(find /Users/moslmn/projects/nuxt-app/supabase -name \"*.sql\" -exec grep -l \"POLICY\" {} ;)"
     ]
   }
 }

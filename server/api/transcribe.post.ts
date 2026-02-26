@@ -1,14 +1,5 @@
-import OpenAI from 'openai'
-
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
-
-  if (!config.openaiApiKey) {
-    throw createError({
-      statusCode: 500,
-      message: 'OpenAI API key not configured'
-    })
-  }
+  const ai = useServerGemini()
 
   const formData = await readMultipartFormData(event)
 
@@ -28,38 +19,61 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Validate file size (25MB max for Whisper)
-  const maxSize = 25 * 1024 * 1024
+  // Gemini supports up to 2GB, but keep a reasonable limit
+  const maxSize = 100 * 1024 * 1024
   if (file.data.length > maxSize) {
     throw createError({
       statusCode: 400,
-      message: 'File too large. Maximum 25MB for transcription.'
+      message: 'File too large. Maximum 100MB for transcription.'
     })
   }
 
-  const openai = new OpenAI({
-    apiKey: config.openaiApiKey as string
-  })
-
   try {
-    // Create a File object for OpenAI
-    const blob = new Blob([file.data], { type: file.type || 'video/mp4' })
-    const audioFile = new File([blob], file.filename, { type: file.type || 'video/mp4' })
+    // Upload to Gemini Files API
+    const uploadedFile = await uploadVideoToGemini(
+      ai,
+      Buffer.from(file.data),
+      file.type || 'video/mp4'
+    )
 
-    const transcription = await openai.audio.transcriptions.create({
-      file: audioFile,
-      model: 'whisper-1',
-      response_format: 'verbose_json',
-      timestamp_granularities: ['segment']
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: {
+        role: 'user',
+        parts: [
+          { fileData: { fileUri: uploadedFile.uri, mimeType: uploadedFile.mimeType } },
+          { text: `Transcribe all spoken words in this video/audio with precise timestamps.
+
+Return a JSON object with this exact structure:
+{
+  "text": "full transcript as a single string",
+  "segments": [
+    { "start": 0.0, "end": 3.5, "text": "transcribed text for this segment" }
+  ]
+}
+
+Rules:
+- Include ALL spoken words, exactly as said
+- Segment boundaries should align with natural speech pauses or sentence boundaries
+- Timestamps should be in seconds (decimal)
+- If no speech is detected, return { "text": "", "segments": [] }` }
+        ]
+      },
+      config: {
+        temperature: 0.1,
+        responseMimeType: 'application/json'
+      }
     })
 
+    const result = JSON.parse(response.text || '{}')
+
     return {
-      text: transcription.text,
-      segments: transcription.segments?.map(seg => ({
+      text: result.text || '',
+      segments: (result.segments || []).map((seg: any) => ({
         start: seg.start,
         end: seg.end,
         text: seg.text
-      })) || []
+      }))
     }
   } catch (err) {
     console.error('Transcription error:', err)

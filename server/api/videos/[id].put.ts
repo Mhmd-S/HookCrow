@@ -120,6 +120,40 @@ export default defineEventHandler(async (event) => {
     sanitizedData.status = validateEnum(body.status, 'status', VIDEO_STATUSES)
   }
 
+  if (body.title !== undefined) {
+    sanitizedData.title = body.title ? sanitizeString(String(body.title)).slice(0, 200) : null
+  }
+
+  if (body.description !== undefined) {
+    sanitizedData.description = body.description ? sanitizeString(String(body.description)).slice(0, 2000) : null
+  }
+
+  if (body.is_published !== undefined) {
+    sanitizedData.is_published = Boolean(body.is_published)
+  }
+
+  if (body.visual_analysis !== undefined) {
+    if (body.visual_analysis === null || typeof body.visual_analysis === 'object') {
+      try {
+        const jsonSize = JSON.stringify(body.visual_analysis ?? null).length
+        if (jsonSize > 500000) {
+          throw new Error('visual_analysis is too large')
+        }
+      } catch (err) {
+        throw createError({
+          statusCode: 400,
+          message: err instanceof Error ? err.message : 'Invalid visual_analysis JSON'
+        })
+      }
+      sanitizedData.visual_analysis = body.visual_analysis as unknown as VideoUpdate['visual_analysis']
+    } else {
+      throw createError({
+        statusCode: 400,
+        message: 'visual_analysis must be a JSON object or null'
+      })
+    }
+  }
+
   const supabase = useServerSupabase()
 
   const { data, error } = await supabase

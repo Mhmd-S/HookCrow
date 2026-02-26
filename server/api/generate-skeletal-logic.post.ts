@@ -1,5 +1,3 @@
-import OpenAI from 'openai'
-
 interface RequestBody {
   transcript: string
   segments: Array<{
@@ -27,15 +25,7 @@ interface SkeletalLogicResponse {
 }
 
 export default defineEventHandler(async (event): Promise<SkeletalLogicResponse> => {
-  const config = useRuntimeConfig()
-
-  if (!config.openaiApiKey) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'OpenAI API key not configured'
-    })
-  }
-
+  const ai = useServerGemini()
   const body = await readBody<RequestBody>(event)
 
   if (!body.transcript || typeof body.transcript !== 'string') {
@@ -51,10 +41,6 @@ export default defineEventHandler(async (event): Promise<SkeletalLogicResponse> 
       statusMessage: 'segments array is required'
     })
   }
-
-  const openai = new OpenAI({
-    apiKey: config.openaiApiKey as string
-  })
 
   const segmentsContext = body.segments
     .map(s => `[${s.label}] (${s.start_time.toFixed(1)}s - ${s.end_time.toFixed(1)}s): "${s.transcript_raw}"`)
@@ -103,17 +89,17 @@ Return a JSON object with this exact structure:
 }`
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.4
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: userPrompt,
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.4,
+        responseMimeType: 'application/json'
+      }
     })
 
-    const content = completion.choices[0]?.message?.content
+    const content = response.text
     if (!content) {
       throw new Error('No response from AI')
     }

@@ -1,20 +1,10 @@
-import OpenAI from 'openai'
-
 interface GenerateBlueprintBody {
   transcript: string
   segmentLabel: string
 }
 
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
-
-  if (!config.openaiApiKey) {
-    throw createError({
-      statusCode: 500,
-      message: 'OpenAI API key not configured'
-    })
-  }
-
+  const ai = useServerGemini()
   const body = await readBody<GenerateBlueprintBody>(event)
 
   if (!body.transcript || body.transcript.trim().length === 0) {
@@ -23,10 +13,6 @@ export default defineEventHandler(async (event) => {
       message: 'Transcript is required'
     })
   }
-
-  const openai = new OpenAI({
-    apiKey: config.openaiApiKey as string
-  })
 
   const systemPrompt = `You are an expert at analyzing short-form video scripts and converting them into reusable templates.
 
@@ -50,17 +36,17 @@ Segment type context: ${body.segmentLabel}
 - CTA: Focus on call-to-action pattern`
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Convert this transcript into a reusable blueprint template:\n\n"${body.transcript}"` }
-      ],
-      max_tokens: 500,
-      temperature: 0.3
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Convert this transcript into a reusable blueprint template:\n\n"${body.transcript}"`,
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.3,
+        maxOutputTokens: 500
+      }
     })
 
-    const blueprint = completion.choices[0]?.message?.content?.trim() || ''
+    const blueprint = response.text?.trim() || ''
 
     return { blueprint }
   } catch (err) {

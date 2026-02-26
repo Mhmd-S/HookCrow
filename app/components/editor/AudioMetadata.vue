@@ -179,37 +179,20 @@ function getSfxColor(type: string): 'primary' | 'success' | 'warning' | 'error' 
             <UIcon name="i-ph-music-notes-simple" class="w-4 h-4 text-success shrink-0 mt-0.5" />
             <div class="flex-1 min-w-0">
               <div class="font-medium text-default truncate">
-                {{ track.title }}
+                {{ track.title || 'Unknown Track' }}
               </div>
               <div class="text-muted truncate">
-                {{ track.artist }}
+                {{ track.artist || 'Unknown Artist' }}
+              </div>
+              <div v-if="track.description" class="text-dimmed text-xs mt-0.5 truncate">
+                {{ track.description }}
               </div>
               <div class="flex items-center gap-2 mt-1 text-dimmed">
                 <span>{{ formatTime(track.start_time) }} - {{ formatTime(track.end_time) }}</span>
                 <span v-if="track.bpm">{{ track.bpm }} BPM</span>
-                <span v-if="track.mood">{{ track.mood }}</span>
+                <span v-if="track.genre">{{ track.genre }}</span>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Unidentified music -->
-      <div v-if="metadata.music.unidentified_music.length > 0" class="space-y-2">
-        <div class="text-xs font-medium text-muted">Unidentified Music</div>
-        <div class="space-y-1">
-          <div
-            v-for="(music, index) in metadata.music.unidentified_music"
-            :key="index"
-            class="flex items-center gap-2 p-2 bg-muted rounded text-xs"
-          >
-            <UIcon name="i-ph-music-note" class="w-4 h-4 text-muted shrink-0" />
-            <div class="flex-1">
-              <span class="text-muted">{{ music.description }}</span>
-            </div>
-            <span class="text-dimmed text-xs">
-              {{ formatTime(music.start_time) }} - {{ formatTime(music.end_time) }}
-            </span>
           </div>
         </div>
       </div>

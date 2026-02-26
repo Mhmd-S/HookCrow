@@ -1,5 +1,3 @@
-import Replicate from 'replicate'
-
 interface RequestBody {
   transcript: string
   videoContext?: string
@@ -65,15 +63,7 @@ const LOGIC_FLOW_PROMPTS: Record<string, string> = {
 }
 
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
-
-  if (!config.replicateApiToken) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'Replicate API token not configured'
-    })
-  }
-
+  const ai = useServerGemini()
   const body = await readBody<RequestBody>(event)
 
   if (!body.transcript || typeof body.transcript !== 'string') {
@@ -82,10 +72,6 @@ export default defineEventHandler(async (event) => {
       statusMessage: 'transcript is required and must be a string'
     })
   }
-
-  const replicate = new Replicate({
-    auth: config.replicateApiToken
-  })
 
   // Get template-specific instructions if a logic flow type is provided
   const templateInstructions = body.logicFlowType
@@ -106,7 +92,7 @@ export default defineEventHandler(async (event) => {
   9. Preserve the hook, transition, value delivery, and CTA structure
   10. Add notes in brackets for delivery style: [excited], [serious], [casual]
   ${templateInstructions ? `\nTemplate Framework:\n${templateInstructions}` : ''}
-  
+
   Output ONLY the template skeleton, no explanations.`
 
   const prompt = `Convert this video transcript into a reusable template skeleton${body.logicFlowType ? ` following the "${body.logicFlowType}" framework` : ''}:
@@ -117,28 +103,22 @@ ${body.videoContext ? `Context: ${body.videoContext}\n\n` : ''}Transcript:
 Template skeleton:`
 
   try {
-    // Using Llama 3.1 8B - cost-effective and fast
-    const output = await replicate.run(
-      'meta/meta-llama-3.1-8b-instruct',
-      {
-        input: {
-          prompt: prompt,
-          system_prompt: systemPrompt,
-          max_tokens: 1024,
-          temperature: 0.3,
-          top_p: 0.9
-        }
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.3,
+        maxOutputTokens: 1024,
+        topP: 0.9
       }
-    )
+    })
 
-    // Replicate returns an array of strings for text models
-    const template = Array.isArray(output) ? output.join('') : String(output)
+    const template = response.text?.trim() || ''
 
-    return {
-      template: template.trim()
-    }
+    return { template }
   } catch (err) {
-    console.error('Replicate error:', err)
+    console.error('Template generation error:', err)
     throw createError({
       statusCode: 500,
       statusMessage: err instanceof Error ? err.message : 'Failed to generate template'

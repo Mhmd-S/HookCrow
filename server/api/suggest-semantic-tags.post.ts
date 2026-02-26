@@ -1,5 +1,3 @@
-import OpenAI from 'openai'
-
 interface RequestBody {
   transcript: string
 }
@@ -71,15 +69,7 @@ const AVAILABLE_TAGS = {
 }
 
 export default defineEventHandler(async (event): Promise<SuggestTagsResponse> => {
-  const config = useRuntimeConfig()
-
-  if (!config.openaiApiKey) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'OpenAI API key not configured'
-    })
-  }
-
+  const ai = useServerGemini()
   const body = await readBody<RequestBody>(event)
 
   if (!body.transcript || typeof body.transcript !== 'string') {
@@ -88,10 +78,6 @@ export default defineEventHandler(async (event): Promise<SuggestTagsResponse> =>
       statusMessage: 'transcript is required and must be a string'
     })
   }
-
-  const openai = new OpenAI({
-    apiKey: config.openaiApiKey as string
-  })
 
   const systemPrompt = `You are a content categorization specialist. Your job is to analyze video transcripts and suggest appropriate tags from a predefined list.
 
@@ -125,17 +111,17 @@ Return a JSON object with this exact structure:
 }`
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.2
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: userPrompt,
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.2,
+        responseMimeType: 'application/json'
+      }
     })
 
-    const content = completion.choices[0]?.message?.content
+    const content = response.text
     if (!content) {
       throw new Error('No response from AI')
     }
