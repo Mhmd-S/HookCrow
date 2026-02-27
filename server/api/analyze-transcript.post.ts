@@ -68,6 +68,8 @@ const LOGIC_FLOW_PATTERNS = [
   }
 ]
 
+const log = createLogger('analyze-transcript')
+
 export default defineEventHandler(async (event): Promise<AnalyzeResponse> => {
   const ai = useServerGemini()
   const body = await readBody<AnalyzeRequest>(event)
@@ -87,12 +89,19 @@ export default defineEventHandler(async (event): Promise<AnalyzeResponse> => {
   }
 
   const videoDuration = body.videoDuration || body.segments[body.segments.length - 1]?.end || 30
+  log.info('Analyzing transcript', {
+    transcriptLength: body.transcript.length,
+    inputSegments: body.segments.length,
+    videoDuration
+  })
 
   // Fetch existing logic flows from database
   const supabase = useServerSupabase()
   const { data: logicFlows } = await supabase
     .from('logic_flows')
     .select('id, name, description')
+
+  log.info('Logic flows loaded', { count: logicFlows?.length || 0, source: logicFlows ? 'database' : 'fallback' })
 
   const logicFlowsContext = logicFlows?.map(lf => `- ${lf.name}: ${lf.description}`).join('\n') ||
     LOGIC_FLOW_PATTERNS.map(p => `- ${p.name}: ${p.pattern}`).join('\n')
@@ -150,6 +159,7 @@ Group the timestamped segments logically into the appropriate labels (Hook, Brid
 Not all labels are required - use only what fits the content.
 Ensure segments cover the full video duration without overlapping.`
 
+  const geminiOp = log.timedOp('Gemini structure analysis', { model: 'gemini-2.5-flash' })
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -166,6 +176,8 @@ Ensure segments cover the full video duration without overlapping.`
       throw new Error('No response from AI')
     }
 
+    log.info('Gemini response received', { responseLength: content.length })
+
     const analysis = JSON.parse(content) as {
       logicFlowName: string
       confidence: number
@@ -181,11 +193,15 @@ Ensure segments cover the full video duration without overlapping.`
       )
       if (match) {
         logicFlowId = match.id
+        log.info('Logic flow matched', { detected: analysis.logicFlowName, matched: match.name, logicFlowId })
+      } else {
+        log.warn('Logic flow not matched', { detected: analysis.logicFlowName })
       }
     }
 
     // Validate and normalize segments
     const validLabels = ['Hook', 'Bridge', 'Value', 'Proof', 'CTA']
+    const rawCount = analysis.segments?.length || 0
     const normalizedSegments = analysis.segments
       .filter(seg => validLabels.includes(seg.label))
       .map(seg => ({
@@ -196,6 +212,14 @@ Ensure segments cover the full video duration without overlapping.`
         script_blueprint: seg.script_blueprint || ''
       }))
 
+    geminiOp.done({
+      logicFlowName: analysis.logicFlowName,
+      confidence: analysis.confidence,
+      rawSegments: rawCount,
+      validSegments: normalizedSegments.length,
+      segmentLabels: normalizedSegments.map(s => s.label).join(', ')
+    })
+
     return {
       logicFlowId,
       logicFlowName: analysis.logicFlowName,
@@ -203,7 +227,7 @@ Ensure segments cover the full video duration without overlapping.`
       segments: normalizedSegments
     }
   } catch (err) {
-    console.error('Analysis error:', err)
+    geminiOp.fail(err)
     throw createError({
       statusCode: 500,
       message: err instanceof Error ? err.message : 'Analysis failed'

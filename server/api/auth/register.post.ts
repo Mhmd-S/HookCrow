@@ -7,9 +7,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = useServerSupabase()
-console.log("Creating user with email:", supabase.auth.admin)
+
 const { data: dataA, error: errorR } = await supabase.auth.admin.listUsers();
-  console.log("Existing users:", dataA, "Error:", errorR)
+
   const { data, error } = await supabase.auth.admin.createUser({
     email,
     password,

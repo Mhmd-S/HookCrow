@@ -9,7 +9,8 @@
       "Bash(pnpm install:*)",
       "Bash(npx nuxt typecheck)",
       "Bash(npx nuxt build)",
-      "Bash(find /Users/moslmn/projects/nuxt-app/supabase -name \"*.sql\" -exec grep -l \"POLICY\" {} ;)"
+      "Bash(find /Users/moslmn/projects/nuxt-app/supabase -name \"*.sql\" -exec grep -l \"POLICY\" {} ;)",
+      "Bash(npx nuxi typecheck)"
     ]
   }
 }

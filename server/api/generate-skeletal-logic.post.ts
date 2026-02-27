@@ -24,6 +24,8 @@ interface SkeletalLogicResponse {
   keyTakeaways: string[]
 }
 
+const log = createLogger('generate-skeletal-logic')
+
 export default defineEventHandler(async (event): Promise<SkeletalLogicResponse> => {
   const ai = useServerGemini()
   const body = await readBody<RequestBody>(event)
@@ -41,6 +43,13 @@ export default defineEventHandler(async (event): Promise<SkeletalLogicResponse> 
       statusMessage: 'segments array is required'
     })
   }
+
+  log.info('Generating skeletal logic', {
+    transcriptLength: body.transcript.length,
+    segmentCount: body.segments.length,
+    logicFlowType: body.logicFlowType || 'none',
+    segmentLabels: body.segments.map(s => s.label).join(', ')
+  })
 
   const segmentsContext = body.segments
     .map(s => `[${s.label}] (${s.start_time.toFixed(1)}s - ${s.end_time.toFixed(1)}s): "${s.transcript_raw}"`)
@@ -88,6 +97,7 @@ Return a JSON object with this exact structure:
   "keyTakeaways": ["3-4 bullet points of the most important strategic lessons from this video's structure"]
 }`
 
+  const geminiOp = log.timedOp('Gemini skeletal logic analysis', { model: 'gemini-2.5-flash' })
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -104,14 +114,17 @@ Return a JSON object with this exact structure:
       throw new Error('No response from AI')
     }
 
+    log.info('Gemini response received', { responseLength: content.length })
+
     const analysis = JSON.parse(content) as SkeletalLogicResponse
 
     // Validate the response structure
     if (!analysis.overview || !Array.isArray(analysis.segments)) {
+      log.error('Invalid response structure', null, { hasOverview: !!analysis.overview, hasSegments: Array.isArray(analysis.segments) })
       throw new Error('Invalid response structure from AI')
     }
 
-    return {
+    const result = {
       overview: analysis.overview,
       segments: analysis.segments.map(seg => ({
         label: seg.label || '',
@@ -123,8 +136,15 @@ Return a JSON object with this exact structure:
       })),
       keyTakeaways: analysis.keyTakeaways || []
     }
+
+    geminiOp.done({
+      analyzedSegments: result.segments.length,
+      takeawayCount: result.keyTakeaways.length
+    })
+
+    return result
   } catch (err) {
-    console.error('Skeletal logic generation error:', err)
+    geminiOp.fail(err)
     throw createError({
       statusCode: 500,
       statusMessage: err instanceof Error ? err.message : 'Failed to generate skeletal logic'

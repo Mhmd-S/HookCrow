@@ -92,17 +92,13 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
 </script>
 
 <template>
-  <div class="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-    <div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="p-6">
       <!-- Header -->
       <div class="flex items-center justify-between mb-6">
         <div>
-          <h1 class="text-2xl font-bold">Admin Dashboard</h1>
-          <p class="text-neutral-500 mt-1">Manage and analyze videos</p>
+          <h2 class="text-lg font-semibold">Admin Dashboard</h2>
+          <p class="text-muted text-sm mt-1">Manage and analyze videos</p>
         </div>
-        <UButton to="/admin/anatomize" icon="i-ph-plus">
-          New Video
-        </UButton>
       </div>
 
       <!-- Filter Tabs & View Toggle -->
@@ -323,6 +319,5 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
           </div>
         </div>
       </div>
-    </div>
   </div>
 </template>

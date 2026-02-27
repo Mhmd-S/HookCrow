@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Segment, VideoWithSegments, VideoUpdate, SegmentInsert, Video, SkeletalLogicAnalysis, VideoAudioAnalysis, VideoVisualAnalysis } from '~/types'
 
-definePageMeta({ middleware: ['admin'] })
+definePageMeta({ layout: 'blank', middleware: ['admin'] })
 
 const route = useRoute()
 const router = useRouter()

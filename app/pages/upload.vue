@@ -9,7 +9,6 @@ const processingStatus = ref('')
 const error = ref<string | null>(null)
 
 async function handleSuccess(videoId: string) {
-  // Auto-run full analysis pipeline
   processing.value = true
   processingStatus.value = 'Processing video...'
   error.value = null
@@ -36,7 +35,6 @@ async function handleSuccess(videoId: string) {
   } catch (err: any) {
     error.value = err?.data?.message || err?.message || 'Processing failed'
     processing.value = false
-    // Still navigate to recipe card — partial results may be available
     setTimeout(() => {
       router.push(`/recipe/${videoId}`)
     }, 2000)
@@ -45,31 +43,23 @@ async function handleSuccess(videoId: string) {
 </script>
 
 <template>
-  <div class="min-h-screen bg-neutral-50">
-    <div class="max-w-3xl mx-auto px-4 py-8">
-      <!-- Header -->
-      <div class="mb-8">
-        <UButton to="/" variant="ghost" icon="i-ph-arrow-left" class="mb-4">
-          Back to Library
-        </UButton>
-        <h1 class="text-2xl font-bold">Upload a Video</h1>
-        <p class="text-muted mt-1">Upload a short-form video and get a step-by-step recreation guide</p>
-      </div>
+  <div class="max-w-2xl mx-auto p-6">
+    <h2 class="text-xl font-semibold mb-1">Upload a Video</h2>
+    <p class="text-muted text-sm mb-6">Upload a short-form video and get a step-by-step recreation guide</p>
 
-      <!-- Processing State -->
-      <div v-if="processing" class="text-center py-20">
-        <UIcon name="i-ph-circle-notch" class="w-12 h-12 animate-spin text-primary mx-auto" />
-        <p class="mt-4 text-lg font-medium">{{ processingStatus }}</p>
-        <p class="mt-2 text-muted">This may take a minute — we're analyzing the video with AI.</p>
-      </div>
+    <!-- Processing State -->
+    <div v-if="processing" class="text-center py-20">
+      <UIcon name="i-ph-circle-notch" class="w-12 h-12 animate-spin text-primary mx-auto" />
+      <p class="mt-4 text-lg font-medium">{{ processingStatus }}</p>
+      <p class="mt-2 text-muted">This may take a minute — we're analyzing the video with AI.</p>
+    </div>
 
-      <!-- Error -->
-      <UAlert v-if="error" color="error" :title="error" class="mb-4" />
+    <!-- Error -->
+    <UAlert v-if="error" color="error" :title="error" class="mb-4" />
 
-      <!-- Upload Form -->
-      <div v-if="!processing" class="bg-white rounded-xl border border-neutral-200 p-6">
-        <VideoUploadForm @success="handleSuccess" />
-      </div>
+    <!-- Upload Form -->
+    <div v-if="!processing" class="bg-white rounded-xl border border-neutral-200 p-6">
+      <VideoUploadForm @success="handleSuccess" />
     </div>
   </div>
 </template>

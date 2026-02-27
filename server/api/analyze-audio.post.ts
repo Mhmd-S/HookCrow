@@ -24,16 +24,20 @@ interface SegmentRecord {
   segment_order: number
 }
 
+const log = createLogger('analyze-audio')
+
 export default defineEventHandler(async (event): Promise<AnalyzeAudioResponse> => {
   const ai = useServerGemini()
   const config = useRuntimeConfig()
   const body = await readBody<AnalyzeAudioRequest>(event)
 
   const videoId = validateUUID(body?.videoId, 'videoId')
+  const pipeline = log.timedOp('audio analysis pipeline', { videoId })
 
   const supabase = useServerSupabase()
 
   // Fetch video record
+  log.info('Fetching video record', { videoId })
   const { data: videoData, error: videoError } = await supabase
     .from('videos')
     .select('id, video_path, duration_seconds')
@@ -41,6 +45,7 @@ export default defineEventHandler(async (event): Promise<AnalyzeAudioResponse> =
     .single()
 
   if (videoError || !videoData) {
+    log.error('Video not found', videoError, { videoId })
     throw createError({
       statusCode: 404,
       message: 'Video not found'
@@ -57,6 +62,7 @@ export default defineEventHandler(async (event): Promise<AnalyzeAudioResponse> =
     .order('segment_order')
 
   const segments = (segmentsData || []) as SegmentRecord[]
+  log.info('Video and segments loaded', { videoId, videoPath: video.video_path, durationSeconds: video.duration_seconds, segmentCount: segments.length })
 
   // Update analysis status to processing
   await supabase
@@ -71,23 +77,31 @@ export default defineEventHandler(async (event): Promise<AnalyzeAudioResponse> =
     })
     .eq('id', videoId)
 
+  log.info('Status set to processing', { videoId })
+
   try {
     // Get video URL from storage
-    const supabaseUrl = config.public.supabaseUrl as string
+    const supabaseUrl = config.supabaseUrl as string
     const videoUrl = `${supabaseUrl}/storage/v1/object/public/videos/${video.video_path}`
 
     // Fetch video file
+    const fetchOp = log.timedOp('fetch video from storage', { videoId })
     const videoResponse = await fetch(videoUrl)
     if (!videoResponse.ok) {
+      fetchOp.fail(new Error(`HTTP ${videoResponse.status}`))
       throw new Error('Failed to fetch video from storage')
     }
 
     const videoBuffer = Buffer.from(await videoResponse.arrayBuffer())
+    const bufferSizeMB = (videoBuffer.length / (1024 * 1024)).toFixed(2)
+    fetchOp.done({ sizeMB: bufferSizeMB })
+
     const duration = video.duration_seconds || 30
 
     // Upload video to Gemini Files API
     const uploadedFile = await uploadVideoToGemini(ai, videoBuffer)
 
+    const geminiOp = log.timedOp('Gemini audio analysis', { videoId, model: 'gemini-2.5-flash', durationSeconds: duration })
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: {
@@ -159,6 +173,8 @@ Return JSON:
       'swoosh', 'impact', 'transition', 'riser', 'ambient', 'other'
     ]
 
+    const rawSfxCount = result.sound_effects?.length || 0
+
     // Build validated audio metadata
     const audioMetadata: AudioMetadata = {
       music: {
@@ -191,6 +207,15 @@ Return JSON:
       }
     }
 
+    const filteredSfx = rawSfxCount - audioMetadata.sound_effects.length
+    geminiOp.done({
+      musicDetected: audioMetadata.music.detected,
+      trackCount: audioMetadata.music.tracks.length,
+      sfxCount: audioMetadata.sound_effects.length,
+      sfxFilteredOut: filteredSfx > 0 ? filteredSfx : undefined,
+      dominantAudio: audioMetadata.overall.dominant_audio
+    })
+
     // Create the final analysis result
     const audioAnalysis: VideoAudioAnalysis = {
       status: 'completed',
@@ -200,6 +225,7 @@ Return JSON:
     }
 
     // Update video record with analysis results
+    log.info('Saving audio analysis to database', { videoId })
     await supabase
       .from('videos')
       .update({ audio_analysis: audioAnalysis as unknown as Json })
@@ -207,6 +233,7 @@ Return JSON:
 
     // Update segment audio metadata (map audio events to segments)
     if (segments.length > 0) {
+      log.info('Mapping audio metadata to segments', { videoId, segmentCount: segments.length })
       for (const segment of segments) {
         const segmentAudioMetadata = getSegmentAudioMetadata(
           audioMetadata,
@@ -219,14 +246,22 @@ Return JSON:
           .update({ audio_metadata: segmentAudioMetadata as unknown as Json })
           .eq('id', segment.id)
       }
+      log.info('Segment audio metadata updated', { videoId, segmentsUpdated: segments.length })
     }
+
+    pipeline.done({
+      musicDetected: audioMetadata.music.detected,
+      trackCount: audioMetadata.music.tracks.length,
+      sfxCount: audioMetadata.sound_effects.length,
+      dominantAudio: audioMetadata.overall.dominant_audio
+    })
 
     return {
       success: true,
       audioAnalysis
     }
   } catch (error) {
-    console.error('Audio analysis error:', error)
+    pipeline.fail(error)
 
     // Update analysis status to failed
     const failedAnalysis: VideoAudioAnalysis = {

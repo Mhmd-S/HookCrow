@@ -3,6 +3,8 @@ interface GenerateBlueprintBody {
   segmentLabel: string
 }
 
+const log = createLogger('generate-blueprint')
+
 export default defineEventHandler(async (event) => {
   const ai = useServerGemini()
   const body = await readBody<GenerateBlueprintBody>(event)
@@ -13,6 +15,8 @@ export default defineEventHandler(async (event) => {
       message: 'Transcript is required'
     })
   }
+
+  log.info('Generating blueprint', { segmentLabel: body.segmentLabel, transcriptLength: body.transcript.length })
 
   const systemPrompt = `You are an expert at analyzing short-form video scripts and converting them into reusable templates.
 
@@ -35,6 +39,7 @@ Segment type context: ${body.segmentLabel}
 - Proof: Focus on credibility/evidence pattern
 - CTA: Focus on call-to-action pattern`
 
+  const geminiOp = log.timedOp('Gemini blueprint generation', { model: 'gemini-2.5-flash', segmentLabel: body.segmentLabel })
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -48,9 +53,11 @@ Segment type context: ${body.segmentLabel}
 
     const blueprint = response.text?.trim() || ''
 
+    geminiOp.done({ blueprintLength: blueprint.length })
+
     return { blueprint }
   } catch (err) {
-    console.error('Blueprint generation error:', err)
+    geminiOp.fail(err)
     throw createError({
       statusCode: 500,
       message: err instanceof Error ? err.message : 'Failed to generate blueprint'

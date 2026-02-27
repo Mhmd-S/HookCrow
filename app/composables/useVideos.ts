@@ -1,9 +1,13 @@
 import type { Video, VideoInsert, VideoUpdate, VideoWithSegments } from '~/types'
 
 export function useVideos() {
+  const { authHeaders } = useAuth()
+
   async function fetchVideos() {
     try {
-      const { data } = await $fetch<{ data: Video[] }>('/api/videos')
+      const { data } = await $fetch<{ data: Video[] }>('/api/videos', {
+        headers: authHeaders()
+      })
       return { data, error: null }
     } catch (err) {
       return { data: null, error: err as Error }
@@ -12,7 +16,9 @@ export function useVideos() {
 
   async function fetchVideo(id: string): Promise<{ data: VideoWithSegments | null; error: Error | null }> {
     try {
-      const { data } = await $fetch<{ data: VideoWithSegments }>(`/api/videos/${id}`)
+      const { data } = await $fetch<{ data: VideoWithSegments }>(`/api/videos/${id}`, {
+        headers: authHeaders()
+      })
       return { data, error: null }
     } catch (err) {
       return { data: null, error: err as Error }
@@ -23,7 +29,8 @@ export function useVideos() {
     try {
       const { data } = await $fetch<{ data: Video }>('/api/videos', {
         method: 'POST',
-        body: video
+        body: video,
+        headers: authHeaders()
       })
       return { data, error: null }
     } catch (err) {
@@ -35,7 +42,8 @@ export function useVideos() {
     try {
       const { data } = await $fetch<{ data: Video }>(`/api/videos/${id}`, {
         method: 'PUT',
-        body: updates
+        body: updates,
+        headers: authHeaders()
       })
       return { data, error: null }
     } catch (err) {
@@ -45,7 +53,7 @@ export function useVideos() {
 
   async function deleteVideo(id: string) {
     try {
-      await $fetch(`/api/videos/${id}`, { method: 'DELETE' })
+      await $fetch(`/api/videos/${id}`, { method: 'DELETE', headers: authHeaders() })
       return { error: null }
     } catch (err) {
       return { error: err as Error }
@@ -59,7 +67,8 @@ export function useVideos() {
 
       const { path } = await $fetch<{ path: string }>('/api/videos/upload', {
         method: 'POST',
-        body: formData
+        body: formData,
+        headers: authHeaders()
       })
       return { path, error: null }
     } catch (err) {

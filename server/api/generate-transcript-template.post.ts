@@ -62,6 +62,8 @@ const LOGIC_FLOW_PROMPTS: Record<string, string> = {
 - CTA: Ready for your own transformation?`
 }
 
+const log = createLogger('generate-transcript-template')
+
 export default defineEventHandler(async (event) => {
   const ai = useServerGemini()
   const body = await readBody<RequestBody>(event)
@@ -73,10 +75,20 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  log.info('Generating transcript template', {
+    transcriptLength: body.transcript.length,
+    logicFlowType: body.logicFlowType || 'none',
+    hasVideoContext: !!body.videoContext
+  })
+
   // Get template-specific instructions if a logic flow type is provided
   const templateInstructions = body.logicFlowType
     ? LOGIC_FLOW_PROMPTS[body.logicFlowType] || ''
     : ''
+
+  if (body.logicFlowType && !templateInstructions) {
+    log.warn('Unknown logic flow type, no template instructions available', { logicFlowType: body.logicFlowType })
+  }
 
   const systemPrompt = `You are a video script template generator. Your task is to convert a raw video transcript into a reusable template skeleton.
 
@@ -102,6 +114,7 @@ ${body.videoContext ? `Context: ${body.videoContext}\n\n` : ''}Transcript:
 
 Template skeleton:`
 
+  const geminiOp = log.timedOp('Gemini template generation', { model: 'gemini-2.5-flash', logicFlowType: body.logicFlowType })
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -116,9 +129,11 @@ Template skeleton:`
 
     const template = response.text?.trim() || ''
 
+    geminiOp.done({ templateLength: template.length })
+
     return { template }
   } catch (err) {
-    console.error('Template generation error:', err)
+    geminiOp.fail(err)
     throw createError({
       statusCode: 500,
       statusMessage: err instanceof Error ? err.message : 'Failed to generate template'

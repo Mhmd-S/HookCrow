@@ -113,3 +113,28 @@ export async function getAudioDuration(audioBuffer: Buffer): Promise<number> {
     }
   }
 }
+
+/**
+ * Get video duration in seconds using ffprobe
+ */
+export async function getVideoDuration(videoBuffer: Buffer): Promise<number> {
+  const tempDir = await mkdtemp(join(tmpdir(), 'video-dur-'))
+  const inputPath = join(tempDir, 'input.mp4')
+
+  try {
+    await writeFile(inputPath, videoBuffer)
+
+    const { stdout } = await execAsync(
+      `ffprobe -i "${inputPath}" -show_entries format=duration -v quiet -of csv="p=0"`,
+      { maxBuffer: 1024 * 1024 }
+    )
+
+    return parseFloat(stdout.trim())
+  } finally {
+    try {
+      await unlink(inputPath)
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+}

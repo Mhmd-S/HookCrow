@@ -259,6 +259,38 @@ export interface SegmentVisualAnalysis {
   branding_elements: string[]
   thumbnail_worthy_frames: string[]
   detected_visual_tags: string[]
+  editing_instructions: {
+    cuts: Array<{
+      timestamp: string
+      type: string
+      description: string
+    }>
+    effects: Array<{
+      type: string
+      parameters: string
+      timing: string
+    }>
+    speed_changes: Array<{
+      range: string
+      speed: string
+      reason: string
+    }>
+    zoom_keyframes: Array<{
+      timestamp: string
+      zoom_level: string
+      direction: string
+    }>
+    text_to_add: Array<{
+      text: string
+      appear_at: string
+      duration: string
+      style: string
+      position: string
+      animation: string
+    }>
+    color_grade_preset: string
+    audio_sync_notes: string
+  }
 }
 
 export interface VideoVisualOverview {

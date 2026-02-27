@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { VideoWithSegments, Segment, LogicFlow, SkeletalLogicAnalysis, VideoVisualAnalysis, VideoAudioAnalysis, SegmentVisualAnalysis, SkeletalLogicSegmentAnalysis, MusicTrack, SoundEffect } from '~/types'
+import type { VideoWithSegments, Segment, SkeletalLogicAnalysis, VideoVisualAnalysis, VideoAudioAnalysis, SegmentVisualAnalysis, SkeletalLogicSegmentAnalysis, MusicTrack, SoundEffect } from '~/types'
 
 const route = useRoute()
 const videoId = route.params.id as string
@@ -33,10 +33,6 @@ const videoUrl = computed(() =>
   video.value ? getVideoUrl(video.value.video_path) : ''
 )
 
-const logicFlow = computed<LogicFlow | null>(() =>
-  (video.value as any)?.logic_flow ?? null
-)
-
 const skeletalLogic = computed<SkeletalLogicAnalysis | null>(() =>
   video.value?.skeletal_logic as unknown as SkeletalLogicAnalysis ?? null
 )
@@ -49,17 +45,14 @@ const audioAnalysis = computed<VideoAudioAnalysis | null>(() =>
   (video.value as any)?.audio_analysis ?? null
 )
 
-// Get skeletal logic segment matching by index
 function getSkeletalSegment(index: number): SkeletalLogicSegmentAnalysis | null {
   return skeletalLogic.value?.segments?.[index] ?? null
 }
 
-// Get visual analysis segment matching by index
 function getVisualSegment(index: number): SegmentVisualAnalysis | null {
   return visualAnalysis.value?.segments?.[index] ?? null
 }
 
-// Get music tracks overlapping a segment's time range
 function getMusicTracks(segment: Segment): MusicTrack[] {
   if (!audioAnalysis.value?.metadata?.music?.tracks) return []
   return audioAnalysis.value.metadata.music.tracks.filter(
@@ -67,7 +60,6 @@ function getMusicTracks(segment: Segment): MusicTrack[] {
   )
 }
 
-// Get sound effects overlapping a segment's time range
 function getSoundEffects(segment: Segment): SoundEffect[] {
   if (!audioAnalysis.value?.metadata?.sound_effects) return []
   return audioAnalysis.value.metadata.sound_effects.filter(
@@ -77,9 +69,9 @@ function getSoundEffects(segment: Segment): SoundEffect[] {
 </script>
 
 <template>
-  <div class="min-h-screen bg-neutral-50">
+  <div>
     <!-- Loading -->
-    <div v-if="loading" class="flex items-center justify-center min-h-screen">
+    <div v-if="loading" class="flex items-center justify-center py-20">
       <UIcon name="i-ph-circle-notch" class="w-8 h-8 animate-spin text-neutral-400" />
     </div>
 
@@ -91,54 +83,46 @@ function getSoundEffects(segment: Segment): SoundEffect[] {
       </UButton>
     </div>
 
-    <!-- Recipe Card Content -->
-    <div v-else-if="video" class="max-w-3xl mx-auto px-4 py-8 space-y-6">
-      <!-- Back -->
-      <UButton to="/" variant="ghost" icon="i-ph-arrow-left" size="sm">
-        Back to Library
-      </UButton>
+    <!-- Recipe Card Content — side-by-side layout -->
+    <div v-else-if="video" class="flex gap-6 p-6 max-w-7xl mx-auto">
+      <!-- Left column: scrollable content -->
+      <div class="flex-1 min-w-0 space-y-6">
+        <!-- Title + Meta -->
+        <RecipeHero :video="video" />
 
-      <!-- Section 1: Hero -->
-      <RecipeHero
-        :video="video"
-        :video-url="videoUrl"
-        @segment-change="(s) => currentSegment = s"
-      />
+        <!-- Full Script Template -->
+        <RecipeScriptTemplate :blueprint="video.script_blueprint" />
 
-      <!-- Section 2: Quick Summary -->
-      <RecipeSummary
-        :logic-flow="logicFlow"
-        :skeletal-logic="skeletalLogic"
-        :visual-analysis="visualAnalysis"
-        :audio-analysis="audioAnalysis"
-      />
-
-      <!-- Section 3: Full Script Template -->
-      <RecipeScriptTemplate :blueprint="video.script_blueprint" />
-
-      <!-- Section 4: Step-by-Step Segments -->
-      <div v-if="video.segments.length > 0">
-        <h2 class="text-lg font-semibold text-default mb-3">Step-by-Step Breakdown</h2>
-        <div class="space-y-4">
-          <RecipeSegmentCard
-            v-for="(segment, index) in video.segments"
-            :key="segment.id"
-            :segment="segment"
-            :segment-index="index"
-            :skeletal-logic-segment="getSkeletalSegment(index)"
-            :visual-segment="getVisualSegment(index)"
-            :music-tracks="getMusicTracks(segment)"
-            :sound-effects="getSoundEffects(segment)"
-          />
+        <!-- Step-by-Step Segments -->
+        <div v-if="video.segments.length > 0">
+          <h2 class="text-lg font-semibold text-default mb-3">Step-by-Step Breakdown</h2>
+          <div class="space-y-4">
+            <RecipeSegmentCard
+              v-for="(segment, index) in video.segments"
+              :key="segment.id"
+              :segment="segment"
+              :segment-index="index"
+              :skeletal-logic-segment="getSkeletalSegment(index)"
+              :visual-segment="getVisualSegment(index)"
+              :music-tracks="getMusicTracks(segment)"
+              :sound-effects="getSoundEffects(segment)"
+            />
+          </div>
         </div>
       </div>
 
-      <!-- Section 5: Production Notes -->
-      <RecipeProductionNotes
-        :visual-analysis="visualAnalysis"
-        :audio-analysis="audioAnalysis"
-        :skeletal-logic="skeletalLogic"
-      />
+      <!-- Right column: sticky video player -->
+      <div class="hidden lg:block w-75 shrink-0">
+        <div class="sticky top-6">
+          <div class="aspect-9/16 bg-black rounded-lg overflow-hidden">
+            <VideoPlayer
+              :src="videoUrl"
+              :segments="video.segments"
+              @segment-change="(s: Segment | null) => currentSegment = s"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>

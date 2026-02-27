@@ -8,3 +8,13 @@
 :root {
   --ui-radius: 0.25rem;
 }
+
+/* Hide scrollbar for filter chip rows */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

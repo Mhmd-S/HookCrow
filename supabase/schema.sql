@@ -48,6 +48,7 @@ CREATE TABLE public.videos (
   script_blueprint text,
   skeletal_logic jsonb,
   audio_analysis jsonb,
+  visual_analysis jsonb,
   semantic_tags ARRAY,
   status text NOT NULL DEFAULT 'draft'::text CHECK (status = ANY (ARRAY['draft'::text, 'complete'::text])),
   created_at timestamp with time zone DEFAULT now(),

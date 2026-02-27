@@ -1,10 +1,13 @@
 import type { Segment, SegmentInsert, SegmentUpdate } from '~/types'
 
 export function useSegments() {
+  const { authHeaders } = useAuth()
+
   async function fetchSegments(videoId: string) {
     try {
       const { data } = await $fetch<{ data: Segment[] }>('/api/segments', {
-        query: { videoId }
+        query: { videoId },
+        headers: authHeaders()
       })
       return { data, error: null }
     } catch (err) {
@@ -16,7 +19,8 @@ export function useSegments() {
     try {
       const { data } = await $fetch<{ data: Segment }>('/api/segments', {
         method: 'POST',
-        body: segment
+        body: segment,
+        headers: authHeaders()
       })
       return { data, error: null }
     } catch (err) {
@@ -28,7 +32,8 @@ export function useSegments() {
     try {
       const { data } = await $fetch<{ data: Segment }>(`/api/segments/${id}`, {
         method: 'PUT',
-        body: updates
+        body: updates,
+        headers: authHeaders()
       })
       return { data, error: null }
     } catch (err) {
@@ -38,7 +43,7 @@ export function useSegments() {
 
   async function deleteSegment(id: string) {
     try {
-      await $fetch(`/api/segments/${id}`, { method: 'DELETE' })
+      await $fetch(`/api/segments/${id}`, { method: 'DELETE', headers: authHeaders() })
       return { error: null }
     } catch (err) {
       return { error: err as Error }
@@ -49,7 +54,8 @@ export function useSegments() {
     try {
       const { data } = await $fetch<{ data: Segment[] }>('/api/segments/upsert', {
         method: 'POST',
-        body: { videoId, segments }
+        body: { videoId, segments },
+        headers: authHeaders()
       })
       return { data, error: null }
     } catch (err) {

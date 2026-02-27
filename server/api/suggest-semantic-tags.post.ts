@@ -68,6 +68,8 @@ const AVAILABLE_TAGS = {
   ]
 }
 
+const log = createLogger('suggest-semantic-tags')
+
 export default defineEventHandler(async (event): Promise<SuggestTagsResponse> => {
   const ai = useServerGemini()
   const body = await readBody<RequestBody>(event)
@@ -78,6 +80,8 @@ export default defineEventHandler(async (event): Promise<SuggestTagsResponse> =>
       statusMessage: 'transcript is required and must be a string'
     })
   }
+
+  log.info('Suggesting semantic tags', { transcriptLength: body.transcript.length })
 
   const systemPrompt = `You are a content categorization specialist. Your job is to analyze video transcripts and suggest appropriate tags from a predefined list.
 
@@ -110,6 +114,7 @@ Return a JSON object with this exact structure:
   "confidence": 0.0 to 1.0 confidence score for your tag suggestions
 }`
 
+  const geminiOp = log.timedOp('Gemini tag suggestion', { model: 'gemini-2.5-flash' })
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -126,18 +131,43 @@ Return a JSON object with this exact structure:
       throw new Error('No response from AI')
     }
 
+    log.info('Gemini response received', { responseLength: content.length })
+
     const suggestions = JSON.parse(content) as SuggestTagsResponse
 
     // Validate that suggested tags are in our allowed lists
-    const validatedDomain = (suggestions.domain || []).filter(tag =>
+    const rawDomain = suggestions.domain || []
+    const rawFormat = suggestions.format || []
+    const rawAudience = suggestions.audience || []
+
+    const validatedDomain = rawDomain.filter(tag =>
       AVAILABLE_TAGS.domain.includes(tag)
     )
-    const validatedFormat = (suggestions.format || []).filter(tag =>
+    const validatedFormat = rawFormat.filter(tag =>
       AVAILABLE_TAGS.format.includes(tag)
     )
-    const validatedAudience = (suggestions.audience || []).filter(tag =>
+    const validatedAudience = rawAudience.filter(tag =>
       AVAILABLE_TAGS.audience.includes(tag)
     )
+
+    const invalidDomain = rawDomain.filter(tag => !AVAILABLE_TAGS.domain.includes(tag))
+    const invalidFormat = rawFormat.filter(tag => !AVAILABLE_TAGS.format.includes(tag))
+    const invalidAudience = rawAudience.filter(tag => !AVAILABLE_TAGS.audience.includes(tag))
+
+    if (invalidDomain.length || invalidFormat.length || invalidAudience.length) {
+      log.warn('Filtered out invalid tags from AI response', {
+        invalidDomain: invalidDomain.length > 0 ? invalidDomain : undefined,
+        invalidFormat: invalidFormat.length > 0 ? invalidFormat : undefined,
+        invalidAudience: invalidAudience.length > 0 ? invalidAudience : undefined
+      })
+    }
+
+    geminiOp.done({
+      domain: validatedDomain,
+      format: validatedFormat,
+      audience: validatedAudience,
+      confidence: suggestions.confidence
+    })
 
     return {
       domain: validatedDomain,
@@ -146,7 +176,7 @@ Return a JSON object with this exact structure:
       confidence: Math.max(0, Math.min(1, suggestions.confidence || 0.5))
     }
   } catch (err) {
-    console.error('Tag suggestion error:', err)
+    geminiOp.fail(err)
     throw createError({
       statusCode: 500,
       statusMessage: err instanceof Error ? err.message : 'Failed to suggest tags'

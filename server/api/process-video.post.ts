@@ -9,16 +9,20 @@ interface ProcessResponse {
   segmentCount: number
 }
 
+const log = createLogger('process-video')
+
 export default defineEventHandler(async (event): Promise<ProcessResponse> => {
   const ai = useServerGemini()
   const config = useRuntimeConfig()
   const body = await readBody<ProcessRequest>(event)
 
   const videoId = validateUUID(body?.videoId, 'videoId')
+  const pipeline = log.timedOp('full pipeline', { videoId })
 
   const supabase = useServerSupabase()
 
   // Fetch video record
+  log.info('Fetching video record', { videoId })
   const { data: video, error: videoError } = await supabase
     .from('videos')
     .select('id, video_path, duration_seconds')
@@ -26,19 +30,24 @@ export default defineEventHandler(async (event): Promise<ProcessResponse> => {
     .single()
 
   if (videoError || !video) {
+    log.error('Video not found', videoError, { videoId })
     throw createError({
       statusCode: 404,
       message: 'Video not found'
     })
   }
 
+  log.info('Video record loaded', { videoId, videoPath: video.video_path, durationSeconds: video.duration_seconds })
+
   // Get video URL from storage
-  const supabaseUrl = config.public.supabaseUrl as string
+  const supabaseUrl = config.supabaseUrl as string
   const videoUrl = `${supabaseUrl}/storage/v1/object/public/videos/${video.video_path}`
 
   // Fetch video file
+  const fetchOp = log.timedOp('fetch video from storage', { videoId })
   const videoResponse = await fetch(videoUrl)
   if (!videoResponse.ok) {
+    fetchOp.fail(new Error(`HTTP ${videoResponse.status}`))
     throw createError({
       statusCode: 500,
       message: 'Failed to fetch video from storage'
@@ -46,23 +55,36 @@ export default defineEventHandler(async (event): Promise<ProcessResponse> => {
   }
 
   const videoBuffer = Buffer.from(await videoResponse.arrayBuffer())
+  const bufferSizeMB = (videoBuffer.length / (1024 * 1024)).toFixed(2)
+  fetchOp.done({ sizeMB: bufferSizeMB })
 
   // Fetch existing logic flows for context
   const { data: logicFlows } = await supabase
     .from('logic_flows')
     .select('id, name, description')
 
+  log.info('Logic flows loaded', { count: logicFlows?.length || 0 })
+
   const logicFlowsContext = logicFlows?.map(lf => `- ${lf.name}: ${lf.description}`).join('\n') || ''
 
-  const videoDuration = video.duration_seconds ||
-    Math.ceil(30) // fallback, will be refined by AI
+  // Extract real duration from video file using ffprobe
+  let videoDuration = video.duration_seconds || 0
+  if (!videoDuration) {
+    try {
+      videoDuration = Math.round(await getVideoDuration(videoBuffer))
+      log.info('Video duration extracted via ffprobe', { videoId, durationSeconds: videoDuration })
+    } catch {
+      videoDuration = 30 // fallback
+      log.warn('Could not extract video duration, using fallback', { videoId, fallback: videoDuration })
+    }
+  }
 
   // Upload video to Gemini Files API
   let uploadedFile: { uri: string; mimeType: string; name: string }
   try {
     uploadedFile = await uploadVideoToGemini(ai, videoBuffer)
   } catch (err) {
-    console.error('Video upload error:', err)
+    log.error('Video upload to Gemini failed', err, { videoId })
     throw createError({
       statusCode: 500,
       message: err instanceof Error ? err.message : 'Failed to upload video for processing'
@@ -123,6 +145,7 @@ If no speech is detected, still analyze the visual structure and return segments
     }>
   }
 
+  const geminiOp = log.timedOp('Gemini transcribe + analyze', { videoId, model: 'gemini-2.5-flash' })
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -143,6 +166,8 @@ If no speech is detected, still analyze the visual structure and return segments
     if (!content) {
       throw new Error('No response from AI')
     }
+
+    log.info('Gemini response received', { videoId, responseLength: content.length })
 
     const analysis = JSON.parse(content) as {
       transcript: string
@@ -166,11 +191,23 @@ If no speech is detected, still analyze the visual structure and return segments
       )
       if (match) {
         logicFlowId = match.id
+        log.info('Logic flow matched', { detected: analysis.logicFlowName, matched: match.name, logicFlowId })
+      } else {
+        log.warn('Logic flow not matched', { detected: analysis.logicFlowName })
       }
     }
 
     const validLabels = ['Hook', 'Bridge', 'Value', 'Proof', 'CTA']
-    const actualDuration = video.duration_seconds || videoDuration
+    const actualDuration = videoDuration
+    const rawSegmentCount = analysis.segments?.length || 0
+
+    // Detect if Gemini returned times in milliseconds instead of seconds
+    // If the max segment end_time is more than 2x the actual duration, assume milliseconds
+    const maxEndTime = Math.max(...(analysis.segments || []).map(s => s.end_time || 0), 0)
+    const timesInMs = actualDuration > 0 && maxEndTime > actualDuration * 2
+    if (timesInMs) {
+      log.warn('Detected timestamps in milliseconds, converting to seconds', { videoId, maxEndTime, actualDuration })
+    }
 
     analysisResult = {
       logicFlowId,
@@ -179,17 +216,32 @@ If no speech is detected, still analyze the visual structure and return segments
       transcript: analysis.transcript || '',
       segments: (analysis.segments || [])
         .filter(seg => validLabels.includes(seg.label))
-        .map(seg => ({
-          label: seg.label,
-          start_time: Math.max(0, seg.start_time),
-          end_time: Math.min(actualDuration, Math.max(seg.start_time + 0.1, seg.end_time)),
-          transcript_raw: seg.transcript_raw || '',
-          script_blueprint: seg.script_blueprint || ''
-        }))
+        .map(seg => {
+          const startRaw = timesInMs ? seg.start_time / 1000 : seg.start_time
+          const endRaw = timesInMs ? seg.end_time / 1000 : seg.end_time
+          return {
+            label: seg.label,
+            start_time: Math.max(0, startRaw),
+            end_time: Math.min(actualDuration, Math.max(startRaw + 0.1, endRaw)),
+            transcript_raw: seg.transcript_raw || '',
+            script_blueprint: seg.script_blueprint || ''
+          }
+        })
         .filter(seg => seg.end_time > seg.start_time)
     }
+
+    const filteredOut = rawSegmentCount - analysisResult.segments.length
+    geminiOp.done({
+      logicFlowName: analysis.logicFlowName,
+      confidence: analysisResult.confidence,
+      transcriptLength: analysisResult.transcript.length,
+      rawSegments: rawSegmentCount,
+      validSegments: analysisResult.segments.length,
+      filteredOut,
+      segmentLabels: analysisResult.segments.map(s => s.label).join(', ')
+    })
   } catch (err) {
-    console.error('Analysis error:', err)
+    geminiOp.fail(err)
     throw createError({
       statusCode: 500,
       message: err instanceof Error ? err.message : 'Analysis failed'
@@ -197,17 +249,18 @@ If no speech is detected, still analyze the visual structure and return segments
   }
 
   // Update video record
+  log.info('Updating video record', { videoId, logicFlowId: analysisResult.logicFlowId })
   const { error: updateError } = await supabase
     .from('videos')
     .update({
       logic_flow_id: analysisResult.logicFlowId,
       script_raw: analysisResult.transcript,
-      duration_seconds: video.duration_seconds || videoDuration
+      duration_seconds: videoDuration
     })
     .eq('id', videoId)
 
   if (updateError) {
-    console.error('Video update error:', updateError)
+    log.error('Failed to update video record', updateError, { videoId })
     throw createError({
       statusCode: 500,
       message: 'Failed to update video record'
@@ -215,13 +268,14 @@ If no speech is detected, still analyze the visual structure and return segments
   }
 
   // Delete existing segments and insert new ones
+  log.info('Replacing segments', { videoId, newSegmentCount: analysisResult.segments.length })
   const { error: deleteError } = await supabase
     .from('segments')
     .delete()
     .eq('video_id', videoId)
 
   if (deleteError) {
-    console.error('Segment delete error:', deleteError)
+    log.error('Failed to delete existing segments', deleteError, { videoId })
   }
 
   if (analysisResult.segments.length > 0) {
@@ -240,13 +294,19 @@ If no speech is detected, still analyze the visual structure and return segments
       .insert(segmentInserts)
 
     if (insertError) {
-      console.error('Segment insert error:', insertError)
+      log.error('Failed to insert segments', insertError, { videoId, segmentCount: segmentInserts.length })
       throw createError({
         statusCode: 500,
         message: 'Failed to save segments'
       })
     }
   }
+
+  pipeline.done({
+    logicFlowName: analysisResult.logicFlowName,
+    segmentCount: analysisResult.segments.length,
+    transcriptLength: analysisResult.transcript.length
+  })
 
   return {
     success: true,

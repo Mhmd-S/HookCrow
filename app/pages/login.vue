@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { FormSubmitEvent, AuthFormField } from '@nuxt/ui'
 
-definePageMeta({ layout: false })
+definePageMeta({ layout: 'blank' })
 
 const { login, isAuthenticated, isAdmin } = useAuth()
 

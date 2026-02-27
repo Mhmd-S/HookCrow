@@ -1,13 +1,8 @@
 <script setup lang="ts">
-import type { VideoWithSegments, Segment } from '~/types'
+import type { VideoWithSegments } from '~/types'
 
-const props = defineProps<{
+defineProps<{
   video: VideoWithSegments
-  videoUrl: string
-}>()
-
-const emit = defineEmits<{
-  segmentChange: [segment: Segment | null]
 }>()
 
 const { SEMANTIC_TAG_CATEGORIES } = await import('~/types')
@@ -31,39 +26,27 @@ function getTagColor(category: string): string {
 
 <template>
   <div>
-    <!-- Video Player -->
-    <div class="bg-black rounded-lg overflow-hidden">
-      <VideoPlayer
-        :src="videoUrl"
-        :segments="video.segments"
-        @segment-change="(s) => emit('segmentChange', s)"
-      />
-    </div>
-
-    <!-- Meta -->
-    <div class="mt-4">
-      <h1 class="text-2xl font-bold text-default">
-        {{ video.title || video.creator_handle || 'Video Recipe' }}
-      </h1>
-      <div class="flex flex-wrap items-center gap-2 mt-2">
-        <UBadge v-if="video.creator_handle" size="sm" color="neutral" variant="subtle">
-          {{ video.creator_handle }}
+    <h1 class="text-2xl font-bold text-default">
+      {{ video.title || video.creator_handle || 'Video Recipe' }}
+    </h1>
+    <div class="flex flex-wrap items-center gap-2 mt-2">
+      <UBadge v-if="video.creator_handle" size="sm" color="neutral" variant="subtle">
+        {{ video.creator_handle }}
+      </UBadge>
+      <UBadge v-if="video.platform" size="sm" color="neutral" variant="subtle">
+        {{ video.platform }}
+      </UBadge>
+      <template v-if="video.semantic_tags && video.semantic_tags.length > 0">
+        <UBadge
+          v-for="tag in video.semantic_tags"
+          :key="tag"
+          size="sm"
+          :color="getTagColor(getTagCategory(tag)) as any"
+          variant="subtle"
+        >
+          {{ tag }}
         </UBadge>
-        <UBadge v-if="video.platform" size="sm" color="neutral" variant="subtle">
-          {{ video.platform }}
-        </UBadge>
-        <template v-if="video.semantic_tags && video.semantic_tags.length > 0">
-          <UBadge
-            v-for="tag in video.semantic_tags"
-            :key="tag"
-            size="sm"
-            :color="getTagColor(getTagCategory(tag)) as any"
-            variant="subtle"
-          >
-            {{ tag }}
-          </UBadge>
-        </template>
-      </div>
+      </template>
     </div>
   </div>
 </template>
