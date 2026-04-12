@@ -15,6 +15,11 @@ export interface Database {
           email: string
           display_name: string | null
           role: 'admin' | 'user'
+          subscription_status: 'free' | 'active' | 'past_due' | 'canceled'
+          stripe_customer_id: string | null
+          subscription_id: string | null
+          current_period_end: string | null
+          plan: 'monthly' | 'annual' | null
           created_at: string
           updated_at: string
         }
@@ -23,6 +28,11 @@ export interface Database {
           email: string
           display_name?: string | null
           role?: 'admin' | 'user'
+          subscription_status?: 'free' | 'active' | 'past_due' | 'canceled'
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
+          current_period_end?: string | null
+          plan?: 'monthly' | 'annual' | null
           created_at?: string
           updated_at?: string
         }
@@ -31,6 +41,11 @@ export interface Database {
           email?: string
           display_name?: string | null
           role?: 'admin' | 'user'
+          subscription_status?: 'free' | 'active' | 'past_due' | 'canceled'
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
+          current_period_end?: string | null
+          plan?: 'monthly' | 'annual' | null
           created_at?: string
           updated_at?: string
         }
@@ -76,8 +91,11 @@ export interface Database {
           semantic_tags: string[] | null
           audio_analysis?: Json | null
           visual_analysis?: Json | null
-          user_id: string | null
+          created_by: string | null
+          thumbnail_path: string | null
           is_published: boolean
+          is_premium: boolean
+          published_at: string | null
           title: string | null
           description: string | null
           status: 'draft' | 'complete'
@@ -98,8 +116,11 @@ export interface Database {
           semantic_tags?: string[] | null
           audio_analysis?: Json | null
           visual_analysis?: Json | null
-          user_id?: string | null
+          created_by?: string | null
+          thumbnail_path?: string | null
           is_published?: boolean
+          is_premium?: boolean
+          published_at?: string | null
           title?: string | null
           description?: string | null
           status?: 'draft' | 'complete'
@@ -120,8 +141,11 @@ export interface Database {
           semantic_tags?: string[] | null
           audio_analysis?: Json | null
           visual_analysis?: Json | null
-          user_id?: string | null
+          created_by?: string | null
+          thumbnail_path?: string | null
           is_published?: boolean
+          is_premium?: boolean
+          published_at?: string | null
           title?: string | null
           description?: string | null
           status?: 'draft' | 'complete'

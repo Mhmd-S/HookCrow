@@ -11,7 +11,7 @@ export function useServerSupabase() {
       throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set — server API requires the service role key')
     }
     supabaseClient = createClient<Database>(
-      config.supabaseUrl as string,
+      config.public.supabaseUrl as string,
       serviceRoleKey
     )
   }

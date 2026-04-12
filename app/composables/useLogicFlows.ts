@@ -1,6 +1,7 @@
 import type { LogicFlow } from '~/types'
 
 export function useLogicFlows() {
+  const { authHeaders } = useAuth()
   const logicFlows = useState<LogicFlow[]>('logicFlows', () => [])
   const loading = useState('logicFlowsLoading', () => false)
   const error = useState<string | null>('logicFlowsError', () => null)
@@ -10,7 +11,9 @@ export function useLogicFlows() {
     error.value = null
 
     try {
-      const { data } = await $fetch<{ data: LogicFlow[] }>('/api/logic-flows')
+      const { data } = await $fetch<{ data: LogicFlow[] }>('/api/admin/logic-flows', {
+        headers: authHeaders()
+      })
       logicFlows.value = data || []
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to fetch logic flows'

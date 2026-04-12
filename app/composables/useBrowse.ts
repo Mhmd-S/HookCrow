@@ -1,8 +1,6 @@
-import type { Video, LogicFlow, BrowseFilters } from '~/types'
+import type { Video, BrowseFilters } from '~/types'
 
-interface BrowseVideo extends Video {
-  logic_flow?: LogicFlow | null
-}
+interface BrowseVideo extends Video {}
 
 interface SearchInterpretation {
   keywords: string[]
@@ -13,18 +11,18 @@ interface SearchInterpretation {
 }
 
 export function useBrowse() {
+  const { authHeaders, isAuthenticated } = useAuth()
   const videos = ref<BrowseVideo[]>([])
-  const logicFlows = ref<LogicFlow[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const isAnon = ref(false)
+  const teaserLimit = ref<number | null>(null)
   // Use useState so AppHeader can access the loading state
   const aiSearchLoading = useState('ai-search-loading', () => false)
   const searchInterpretation = useState<SearchInterpretation | null>('search-interpretation', () => null)
 
   const filters = ref<BrowseFilters>({
-    domains: [],
-    formats: [],
-    logicFlowId: null,
+    tags: [],
     search: '',
     page: 1
   })
@@ -36,7 +34,8 @@ export function useBrowse() {
     try {
       const result = await $fetch<SearchInterpretation>('/api/search/interpret', {
         method: 'POST',
-        body: { query: query.trim() }
+        body: { query: query.trim() },
+        headers: authHeaders()
       })
       searchInterpretation.value = result
       return result
@@ -56,17 +55,14 @@ export function useBrowse() {
       const params = new URLSearchParams()
       const searchTerm = filters.value.search.trim()
 
-      // AI interpretation for queries with 3+ characters
-      if (searchTerm.length >= 3) {
+      // AI interpretation is a Pro-side affordance; skip entirely for anon callers
+      // since /api/search/interpret requires auth and would 401.
+      if (searchTerm.length >= 3 && isAuthenticated.value) {
         const interpretation = await interpretSearch(searchTerm)
 
         if (interpretation && interpretation.confidence > 0.3) {
           // Merge interpreted tags with existing filter tags
-          const allTags = [
-            ...filters.value.domains,
-            ...filters.value.formats,
-            ...interpretation.tags
-          ]
+          const allTags = [...filters.value.tags, ...interpretation.tags]
           const uniqueTags = [...new Set(allTags)]
           if (uniqueTags.length > 0) {
             params.set('tags', uniqueTags.join(','))
@@ -79,32 +75,17 @@ export function useBrowse() {
 
           // Also pass the original search term for direct matching
           params.set('search', searchTerm)
-
-          // Use logic flow from interpretation if not already filtered
-          if (interpretation.logicFlowType && !filters.value.logicFlowId) {
-            const match = logicFlows.value.find(lf =>
-              lf.name.toLowerCase().includes(interpretation.logicFlowType!.toLowerCase())
-            )
-            if (match) {
-              params.set('logic_flow_id', match.id)
-            }
-          }
         } else {
           // Low confidence or no interpretation: pass raw search
           params.set('search', searchTerm)
-          const tags = [...filters.value.domains, ...filters.value.formats]
-          if (tags.length > 0) params.set('tags', tags.join(','))
+          if (filters.value.tags.length > 0) params.set('tags', filters.value.tags.join(','))
         }
       } else {
         // Short query or empty: standard search
         if (searchTerm) params.set('search', searchTerm)
-        const tags = [...filters.value.domains, ...filters.value.formats]
-        if (tags.length > 0) params.set('tags', tags.join(','))
+        if (filters.value.tags.length > 0) params.set('tags', filters.value.tags.join(','))
       }
 
-      if (filters.value.logicFlowId) {
-        params.set('logic_flow_id', filters.value.logicFlowId)
-      }
       if (filters.value.page > 1) {
         params.set('page', String(filters.value.page))
       }
@@ -112,8 +93,16 @@ export function useBrowse() {
       const queryString = params.toString()
       const url = queryString ? `/api/browse?${queryString}` : '/api/browse'
 
-      const result = await $fetch<{ data: BrowseVideo[]; page: number; limit: number }>(url)
+      const result = await $fetch<{
+        data: BrowseVideo[]
+        page: number
+        limit: number
+        anon?: boolean
+        teaser_limit?: number | null
+      }>(url, { headers: authHeaders() })
       videos.value = result.data || []
+      isAnon.value = !!result.anon
+      teaserLimit.value = result.teaser_limit ?? null
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to load videos'
     } finally {
@@ -121,17 +110,8 @@ export function useBrowse() {
     }
   }
 
-  async function fetchLogicFlows() {
-    try {
-      const { data } = await $fetch<{ data: LogicFlow[] }>('/api/logic-flows')
-      logicFlows.value = data || []
-    } catch {
-      // Non-critical: filters still work without logic flows
-    }
-  }
-
   async function loadBrowse() {
-    await Promise.all([fetchBrowseVideos(), fetchLogicFlows()])
+    await fetchBrowseVideos()
   }
 
   function setFilters(newFilters: Partial<BrowseFilters>) {
@@ -141,9 +121,7 @@ export function useBrowse() {
 
   function clearFilters() {
     filters.value = {
-      domains: [],
-      formats: [],
-      logicFlowId: null,
+      tags: [],
       search: '',
       page: 1
     }
@@ -153,10 +131,11 @@ export function useBrowse() {
 
   return {
     videos,
-    logicFlows,
     loading,
     error,
     filters,
+    isAnon,
+    teaserLimit,
     aiSearchLoading,
     searchInterpretation,
     loadBrowse,

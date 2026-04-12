@@ -5,7 +5,7 @@ export function useSegments() {
 
   async function fetchSegments(videoId: string) {
     try {
-      const { data } = await $fetch<{ data: Segment[] }>('/api/segments', {
+      const { data } = await $fetch<{ data: Segment[] }>('/api/admin/segments', {
         query: { videoId },
         headers: authHeaders()
       })
@@ -17,7 +17,7 @@ export function useSegments() {
 
   async function createSegment(segment: SegmentInsert) {
     try {
-      const { data } = await $fetch<{ data: Segment }>('/api/segments', {
+      const { data } = await $fetch<{ data: Segment }>('/api/admin/segments', {
         method: 'POST',
         body: segment,
         headers: authHeaders()
@@ -30,7 +30,7 @@ export function useSegments() {
 
   async function updateSegment(id: string, updates: SegmentUpdate) {
     try {
-      const { data } = await $fetch<{ data: Segment }>(`/api/segments/${id}`, {
+      const { data } = await $fetch<{ data: Segment }>(`/api/admin/segments/${id}`, {
         method: 'PUT',
         body: updates,
         headers: authHeaders()
@@ -43,7 +43,7 @@ export function useSegments() {
 
   async function deleteSegment(id: string) {
     try {
-      await $fetch(`/api/segments/${id}`, { method: 'DELETE', headers: authHeaders() })
+      await $fetch(`/api/admin/segments/${id}`, { method: 'DELETE', headers: authHeaders() })
       return { error: null }
     } catch (err) {
       return { error: err as Error }
@@ -52,7 +52,7 @@ export function useSegments() {
 
   async function upsertSegments(videoId: string, segments: SegmentInsert[]) {
     try {
-      const { data } = await $fetch<{ data: Segment[] }>('/api/segments/upsert', {
+      const { data } = await $fetch<{ data: Segment[] }>('/api/admin/segments/upsert', {
         method: 'POST',
         body: { videoId, segments },
         headers: authHeaders()

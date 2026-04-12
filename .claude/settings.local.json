@@ -10,7 +10,14 @@
       "Bash(npx nuxt typecheck)",
       "Bash(npx nuxt build)",
       "Bash(find /Users/moslmn/projects/nuxt-app/supabase -name \"*.sql\" -exec grep -l \"POLICY\" {} ;)",
-      "Bash(npx nuxi typecheck)"
+      "Bash(npx nuxi typecheck)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/api/recipe/771910cc-55c5-49bf-b411-418e0e1ce56a)",
+      "Bash(curl -s http://localhost:3000/api/recipe/771910cc-55c5-49bf-b411-418e0e1ce56a)",
+      "Bash(curl -s \"http://localhost:3000/api/browse\")",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(v[''id''], v.get\\(''title'',''\\(no title\\)''\\)\\) for v in data.get\\(''data'',[]\\)]\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/recipe/771910cc-55c5-49bf-b411-418e0e1ce56a/use)",
+      "Bash(ls -la /Users/moslmn/projects/nuxt-app/app/pages/recipe/[id]/)",
+      "Bash(ls /Users/moslmn/projects/nuxt-app/server/api/projects/[id]/)"
     ]
   }
 }

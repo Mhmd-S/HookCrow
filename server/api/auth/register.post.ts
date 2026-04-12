@@ -8,8 +8,6 @@ export default defineEventHandler(async (event) => {
 
   const supabase = useServerSupabase()
 
-const { data: dataA, error: errorR } = await supabase.auth.admin.listUsers();
-
   const { data, error } = await supabase.auth.admin.createUser({
     email,
     password,

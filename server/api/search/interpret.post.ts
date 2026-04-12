@@ -50,6 +50,7 @@ const LOGIC_FLOW_TYPES = [
 const log = createLogger('search-interpret')
 
 export default defineEventHandler(async (event): Promise<InterpretResponse> => {
+  await requireAuth(event)
   const ai = useServerGemini()
   const body = await readBody<InterpretRequest>(event)
 

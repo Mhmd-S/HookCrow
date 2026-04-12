@@ -5,7 +5,7 @@ export function useVideos() {
 
   async function fetchVideos() {
     try {
-      const { data } = await $fetch<{ data: Video[] }>('/api/videos', {
+      const { data } = await $fetch<{ data: Video[] }>('/api/admin/videos', {
         headers: authHeaders()
       })
       return { data, error: null }
@@ -16,7 +16,7 @@ export function useVideos() {
 
   async function fetchVideo(id: string): Promise<{ data: VideoWithSegments | null; error: Error | null }> {
     try {
-      const { data } = await $fetch<{ data: VideoWithSegments }>(`/api/videos/${id}`, {
+      const { data } = await $fetch<{ data: VideoWithSegments }>(`/api/admin/videos/${id}`, {
         headers: authHeaders()
       })
       return { data, error: null }
@@ -27,7 +27,7 @@ export function useVideos() {
 
   async function createVideo(video: VideoInsert) {
     try {
-      const { data } = await $fetch<{ data: Video }>('/api/videos', {
+      const { data } = await $fetch<{ data: Video }>('/api/admin/videos', {
         method: 'POST',
         body: video,
         headers: authHeaders()
@@ -40,7 +40,7 @@ export function useVideos() {
 
   async function updateVideo(id: string, updates: VideoUpdate) {
     try {
-      const { data } = await $fetch<{ data: Video }>(`/api/videos/${id}`, {
+      const { data } = await $fetch<{ data: Video }>(`/api/admin/videos/${id}`, {
         method: 'PUT',
         body: updates,
         headers: authHeaders()
@@ -53,7 +53,7 @@ export function useVideos() {
 
   async function deleteVideo(id: string) {
     try {
-      await $fetch(`/api/videos/${id}`, { method: 'DELETE', headers: authHeaders() })
+      await $fetch(`/api/admin/videos/${id}`, { method: 'DELETE', headers: authHeaders() })
       return { error: null }
     } catch (err) {
       return { error: err as Error }
@@ -65,7 +65,7 @@ export function useVideos() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const { path } = await $fetch<{ path: string }>('/api/videos/upload', {
+      const { path } = await $fetch<{ path: string }>('/api/admin/videos/upload', {
         method: 'POST',
         body: formData,
         headers: authHeaders()

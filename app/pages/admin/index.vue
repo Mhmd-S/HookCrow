@@ -157,7 +157,7 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
         <UIcon name="i-ph-video" class="w-16 h-16 mx-auto text-neutral-300 dark:text-neutral-700" />
         <h3 class="mt-4 text-lg font-medium">No videos yet</h3>
         <p class="mt-2 text-neutral-500">Upload your first video to start anatomizing</p>
-        <UButton to="/admin/anatomize" class="mt-6" icon="i-ph-plus">
+        <UButton to="/admin/recipes/new" class="mt-6" icon="i-ph-plus">
           Upload Video
         </UButton>
       </div>
@@ -216,7 +216,7 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
                   <p class="text-xs text-neutral-400">{{ formatDate(video.created_at) }}</p>
                   <div class="flex gap-1">
                     <UButton
-                      :to="`/admin/anatomize/${video.id}`"
+                      :to="`/admin/recipes/${video.id}`"
                       size="xs"
                       variant="ghost"
                       icon="i-ph-pencil"
@@ -292,7 +292,7 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
 
           <div class="px-4 pb-4 flex gap-2">
             <UButton
-              :to="`/admin/anatomize/${video.id}`"
+              :to="`/admin/recipes/${video.id}`"
               size="sm"
               variant="soft"
               icon="i-ph-pencil"

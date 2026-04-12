@@ -4,6 +4,7 @@ const emit = defineEmits<{
 }>()
 
 const { createVideo, uploadVideoFile } = useVideos()
+const { authHeaders } = useAuth()
 
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -90,9 +91,10 @@ async function handleSubmit() {
         logicFlowId: string | null
         logicFlowName: string | null
         segmentCount: number
-      }>('/api/process-video', {
+      }>('/api/admin/process-video', {
         method: 'POST',
-        body: { videoId }
+        body: { videoId },
+        headers: authHeaders()
       })
 
       if (result.success) {

@@ -19,6 +19,7 @@ export function useAuth() {
   const isAuthenticated = computed(() => !!user.value)
   const isAdmin = computed(() => profile.value?.role === 'admin')
   const role = computed<UserRole | null>(() => profile.value?.role ?? null)
+  const isPro = computed(() => profile.value?.subscription_status === 'active')
 
   async function fetchProfile() {
     const token = session.value?.access_token
@@ -105,39 +106,46 @@ export function useAuth() {
     }
   }
 
-  function initAuth() {
+  async function initAuth(): Promise<void> {
     if (import.meta.server) {
       loading.value = false
       return
     }
 
     const stored = localStorage.getItem('auth-session')
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as AuthSession
-        session.value = parsed
-        // Validate the token by fetching profile
-        $fetch<{ data: Profile }>('/api/auth/profile', {
-          headers: { Authorization: `Bearer ${parsed.access_token}` }
-        }).then((res) => {
-          user.value = { id: res.data.id, email: res.data.email }
-          profile.value = res.data
-          loading.value = false
-        }).catch(() => {
-          // Token expired or invalid
-          user.value = null
-          profile.value = null
-          session.value = null
-          clearPersistedSession()
-          loading.value = false
-        })
-      } catch {
-        clearPersistedSession()
-        loading.value = false
-      }
-    } else {
+    if (!stored) {
+      loading.value = false
+      return
+    }
+
+    let parsed: AuthSession
+    try {
+      parsed = JSON.parse(stored) as AuthSession
+    } catch {
+      clearPersistedSession()
+      loading.value = false
+      return
+    }
+
+    session.value = parsed
+    try {
+      const res = await $fetch<{ data: Profile }>('/api/auth/profile', {
+        headers: { Authorization: `Bearer ${parsed.access_token}` }
+      })
+      user.value = { id: res.data.id, email: res.data.email }
+      profile.value = res.data
+    } catch {
+      user.value = null
+      profile.value = null
+      session.value = null
+      clearPersistedSession()
+    } finally {
       loading.value = false
     }
+  }
+
+  async function refreshProfile() {
+    await fetchProfile()
   }
 
   return {
@@ -147,11 +155,13 @@ export function useAuth() {
     isAuthenticated,
     isAdmin,
     role,
+    isPro,
     login,
     register,
     logout,
     getAccessToken,
     authHeaders,
-    initAuth
+    initAuth,
+    refreshProfile
   }
 }

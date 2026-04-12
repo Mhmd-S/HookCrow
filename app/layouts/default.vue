@@ -1,10 +1,11 @@
 <script setup lang="ts">
 const { isOpen, close } = useSidebarState()
+const { isAdmin } = useAuth()
 </script>
 
 <template>
   <div class="h-screen flex overflow-hidden bg-neutral-50">
-    <!-- Mobile backdrop -->
+    <!-- Mobile backdrop (admin only) -->
     <Transition
       enter-active-class="transition-opacity duration-200"
       enter-from-class="opacity-0"
@@ -14,14 +15,15 @@ const { isOpen, close } = useSidebarState()
       leave-to-class="opacity-0"
     >
       <div
-        v-if="isOpen"
+        v-if="isOpen && isAdmin"
         class="fixed inset-0 bg-black/30 z-40 lg:hidden"
         @click="close"
       />
     </Transition>
 
-    <!-- Sidebar -->
+    <!-- Sidebar (admin only) -->
     <aside
+      v-if="isAdmin"
       class="fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 lg:static lg:translate-x-0"
       :class="isOpen ? 'translate-x-0' : '-translate-x-full'"
     >

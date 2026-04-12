@@ -4,6 +4,7 @@ import type { FormSubmitEvent, AuthFormField } from '@nuxt/ui'
 definePageMeta({ layout: 'blank' })
 
 const { register, isAuthenticated } = useAuth()
+const route = useRoute()
 
 const error = ref<string | null>(null)
 const submitting = ref(false)
@@ -14,8 +15,14 @@ const fields: AuthFormField[] = [
   { name: 'password', type: 'password', label: 'Password', placeholder: 'Min. 6 characters', required: true }
 ]
 
+function destination() {
+  const redirect = route.query.redirect
+  if (typeof redirect === 'string' && redirect.startsWith('/')) return redirect
+  return '/'
+}
+
 watch(isAuthenticated, (val) => {
-  if (val) navigateTo('/')
+  if (val) navigateTo(destination())
 }, { immediate: true })
 
 async function onSubmit(event: FormSubmitEvent<{ displayName?: string; email: string; password: string }>) {
@@ -26,7 +33,7 @@ async function onSubmit(event: FormSubmitEvent<{ displayName?: string; email: st
   if (result.error) {
     error.value = result.error
   } else {
-    navigateTo('/')
+    navigateTo(destination())
   }
 
   submitting.value = false

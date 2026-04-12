@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { SEMANTIC_TAG_CATEGORIES, type SemanticTag } from '~/types'
 
+const { authHeaders } = useAuth()
+
 interface Props {
   modelValue: string[]
   transcript?: string
@@ -71,11 +73,12 @@ async function suggestTags() {
       format: string[]
       audience: string[]
       confidence: number
-    }>('/api/suggest-semantic-tags', {
+    }>('/api/admin/suggest-semantic-tags', {
       method: 'POST',
       body: {
         transcript: props.transcript
-      }
+      },
+      headers: authHeaders()
     })
 
     // Merge suggested tags with existing ones

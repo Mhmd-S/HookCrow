@@ -12,6 +12,7 @@ interface VideoWithLogicFlow extends Video {
 }
 
 export function useLibrary() {
+  const { authHeaders } = useAuth()
   const videos = ref<VideoWithLogicFlow[]>([])
   const logicFlows = ref<LogicFlow[]>([])
   const loading = ref(false)
@@ -48,9 +49,9 @@ export function useLibrary() {
       }
 
       const queryString = params.toString()
-      const url = queryString ? `/api/videos?${queryString}` : '/api/videos'
+      const url = queryString ? `/api/admin/videos?${queryString}` : '/api/admin/videos'
 
-      const { data } = await $fetch<{ data: VideoWithLogicFlow[] }>(url)
+      const { data } = await $fetch<{ data: VideoWithLogicFlow[] }>(url, { headers: authHeaders() })
       videos.value = data || []
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to fetch videos'
@@ -66,7 +67,7 @@ export function useLibrary() {
    */
   async function fetchLogicFlows() {
     try {
-      const { data } = await $fetch<{ data: LogicFlow[] }>('/api/logic-flows')
+      const { data } = await $fetch<{ data: LogicFlow[] }>('/api/admin/logic-flows', { headers: authHeaders() })
       logicFlows.value = data || []
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to fetch logic flows'

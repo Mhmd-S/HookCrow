@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { Segment } from '~/types'
 
+const { authHeaders } = useAuth()
+
 interface Props {
   segments: Segment[]
   saving?: boolean
@@ -135,13 +137,14 @@ async function generateTemplate(index: number) {
 
   try {
     const { template } = await $fetch<{ template: string }>(
-      '/api/generate-transcript-template',
+      '/api/admin/generate-transcript-template',
       {
         method: 'POST',
         body: {
           transcript: segment.transcript_raw,
           videoContext: `Segment type: ${segment.label}`
-        }
+        },
+        headers: authHeaders()
       }
     )
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { isAuthenticated, isAdmin } = useAuth()
+const { isAdmin } = useAuth()
 const route = useRoute()
 const { close } = useSidebarState()
 
@@ -24,15 +24,15 @@ watch(() => route.path, () => {
 
     <!-- Scrollable nav -->
     <div class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-      <!-- Upload CTA -->
+      <!-- Upload CTA (admin-only) -->
       <UButton
-        v-if="isAuthenticated"
-        to="/upload"
+        v-if="isAdmin"
+        to="/admin/recipes/new"
         block
         icon="i-ph-plus"
         class="mb-4"
       >
-        Upload Video
+        New Recipe
       </UButton>
 
       <!-- Home -->
@@ -45,22 +45,6 @@ watch(() => route.path, () => {
         <span>Explore</span>
       </NuxtLink>
 
-      <!-- My Library -->
-      <template v-if="isAuthenticated">
-        <p class="px-3 pt-5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-dimmed">
-          My Library
-        </p>
-
-        <NuxtLink
-          to="/my-videos"
-          class="flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors"
-          :class="isActive('/my-videos') ? 'bg-neutral-100 font-medium text-default' : 'text-muted hover:bg-neutral-50'"
-        >
-          <UIcon name="i-ph-video" class="w-4 h-4 shrink-0" />
-          <span>My Videos</span>
-        </NuxtLink>
-      </template>
-
       <!-- Admin -->
       <template v-if="isAdmin">
         <p class="px-3 pt-5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-dimmed">
@@ -70,19 +54,28 @@ watch(() => route.path, () => {
         <NuxtLink
           to="/admin"
           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors"
-          :class="isActive('/admin') && !isActive('/admin/anatomize') ? 'bg-neutral-100 font-medium text-default' : 'text-muted hover:bg-neutral-50'"
+          :class="route.path === '/admin' ? 'bg-neutral-100 font-medium text-default' : 'text-muted hover:bg-neutral-50'"
         >
           <UIcon name="i-ph-gauge" class="w-4 h-4 shrink-0" />
           <span>Dashboard</span>
         </NuxtLink>
 
         <NuxtLink
-          to="/admin/anatomize"
+          to="/admin/recipes"
           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors"
-          :class="isActive('/admin/anatomize') ? 'bg-neutral-100 font-medium text-default' : 'text-muted hover:bg-neutral-50'"
+          :class="isActive('/admin/recipes') ? 'bg-neutral-100 font-medium text-default' : 'text-muted hover:bg-neutral-50'"
         >
-          <UIcon name="i-ph-scissors" class="w-4 h-4 shrink-0" />
-          <span>New Anatomize</span>
+          <UIcon name="i-ph-film-strip" class="w-4 h-4 shrink-0" />
+          <span>Recipes</span>
+        </NuxtLink>
+
+        <NuxtLink
+          to="/admin/users"
+          class="flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors"
+          :class="isActive('/admin/users') ? 'bg-neutral-100 font-medium text-default' : 'text-muted hover:bg-neutral-50'"
+        >
+          <UIcon name="i-ph-users" class="w-4 h-4 shrink-0" />
+          <span>Users</span>
         </NuxtLink>
       </template>
     </div>

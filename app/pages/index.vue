@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { SEMANTIC_TAG_CATEGORIES } from '~/types'
-
-const { videos, logicFlows, loading, filters, searchInterpretation, loadBrowse, setFilters, clearFilters } = useBrowse()
+const { videos, loading, filters, isAnon, teaserLimit, searchInterpretation, loadBrowse, setFilters, clearFilters } = useBrowse()
 const { getVideoUrl } = useVideos()
+const { isPro, isAdmin } = useAuth()
 const route = useRoute()
+
+function isLocked(video: { is_premium?: boolean | null }): boolean {
+  return !!video.is_premium && !isPro.value && !isAdmin.value
+}
 
 onMounted(() => {
   const searchQuery = (route.query.search as string) || ''
@@ -21,86 +24,37 @@ watch(() => route.query.search, (val) => {
   }
 })
 
-function getLogicFlowShortName(name: string): string {
-  const match = name.match(/^([^(]+)/)
-  return match?.[1] ? match[1].trim() : name
-}
-
-// Build filter chips: "For You" + logic flows + domain tags
-interface FilterChip {
-  label: string
-  type: 'all' | 'logicFlow' | 'domain'
-  value: string
-}
-
-const filterChips = computed<FilterChip[]>(() => {
-  const chips: FilterChip[] = [
-    { label: 'For You', type: 'all', value: '' }
-  ]
-
-  for (const lf of logicFlows.value) {
-    chips.push({
-      label: getLogicFlowShortName(lf.name),
-      type: 'logicFlow',
-      value: lf.id
-    })
+// Tag chips aggregated from current result set
+const tagChips = computed<string[]>(() => {
+  const counts = new Map<string, number>()
+  for (const v of videos.value) {
+    for (const t of v.semantic_tags || []) {
+      counts.set(t, (counts.get(t) || 0) + 1)
+    }
   }
-
-  for (const domain of (SEMANTIC_TAG_CATEGORIES.domain as unknown as string[])) {
-    chips.push({
-      label: domain,
-      type: 'domain',
-      value: domain
-    })
-  }
-
-  return chips
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([tag]) => tag)
+    .slice(0, 24)
 })
 
-function isChipActive(chip: FilterChip): boolean {
-  if (chip.type === 'all') {
-    return !filters.value.logicFlowId && filters.value.domains.length === 0
-  }
-  if (chip.type === 'logicFlow') {
-    return filters.value.logicFlowId === chip.value
-  }
-  if (chip.type === 'domain') {
-    return filters.value.domains.includes(chip.value)
-  }
-  return false
+function isTagActive(tag: string): boolean {
+  return filters.value.tags.includes(tag)
 }
 
-function toggleChip(chip: FilterChip) {
-  if (chip.type === 'all') {
-    clearFilters()
-    return
+function toggleTag(tag: string) {
+  const current = [...filters.value.tags]
+  const idx = current.indexOf(tag)
+  if (idx >= 0) {
+    current.splice(idx, 1)
+  } else {
+    current.push(tag)
   }
-
-  if (chip.type === 'logicFlow') {
-    setFilters({
-      logicFlowId: filters.value.logicFlowId === chip.value ? null : chip.value,
-      domains: []
-    })
-    return
-  }
-
-  if (chip.type === 'domain') {
-    const current = [...filters.value.domains]
-    const idx = current.indexOf(chip.value)
-    if (idx >= 0) {
-      current.splice(idx, 1)
-    } else {
-      current.push(chip.value)
-    }
-    setFilters({ domains: current, logicFlowId: null })
-  }
+  setFilters({ tags: current })
 }
 
 const hasActiveFilters = computed(() => {
-  return filters.value.domains.length > 0
-    || filters.value.formats.length > 0
-    || filters.value.logicFlowId !== null
-    || filters.value.search.trim() !== ''
+  return filters.value.tags.length > 0 || filters.value.search.trim() !== ''
 })
 
 const showInterpretation = computed(() => {
@@ -108,23 +62,39 @@ const showInterpretation = computed(() => {
     && filters.value.search.trim().length >= 3
     && (searchInterpretation.value.tags.length > 0 || searchInterpretation.value.keywords.length > 0)
 })
+
+function formatDuration(seconds: number | null): string | null {
+  if (!seconds || seconds >= 3600) return null
+  return `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, '0')}`
+}
 </script>
 
 <template>
-  <div class="p-6">
-    <!-- Filter chips (scrollable) -->
-    <div class="flex items-center gap-2 overflow-x-auto pb-4 scrollbar-hide">
-      <button
-        v-for="chip in filterChips"
-        :key="`${chip.type}-${chip.value}`"
-        class="shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
-        :class="isChipActive(chip)
-          ? 'bg-primary text-white'
-          : 'bg-neutral-100 text-default hover:bg-neutral-200'"
-        @click="toggleChip(chip)"
-      >
-        {{ chip.label }}
-      </button>
+  <div class="max-w-7xl mx-auto px-6 py-8">
+    <!-- Tag chips (scrollable) -->
+    <div class="sticky top-0 z-10 bg-neutral-50/90 backdrop-blur-md -mx-6 px-6 pb-4 pt-2 mb-2">
+      <div class="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+        <button
+          class="shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
+          :class="!hasActiveFilters
+            ? 'bg-primary text-white'
+            : 'bg-neutral-100 text-default hover:bg-neutral-200'"
+          @click="clearFilters"
+        >
+          For You
+        </button>
+        <button
+          v-for="tag in tagChips"
+          :key="tag"
+          class="shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
+          :class="isTagActive(tag)
+            ? 'bg-primary text-white'
+            : 'bg-neutral-100 text-default hover:bg-neutral-200'"
+          @click="toggleTag(tag)"
+        >
+          {{ tag }}
+        </button>
+      </div>
     </div>
 
     <!-- AI interpretation context -->
@@ -166,56 +136,76 @@ const showInterpretation = computed(() => {
     <!-- Empty -->
     <div v-else-if="videos.length === 0" class="text-center py-20">
       <UIcon name="i-ph-video" class="w-16 h-16 mx-auto text-neutral-300" />
-      <h3 class="mt-4 text-lg font-medium">No videos found</h3>
+      <h3 class="mt-4 text-lg font-medium">No recipes found</h3>
       <p class="mt-2 text-muted">
-        {{ hasActiveFilters ? 'Try adjusting your filters or rephrasing your search.' : 'Videos will appear here once published.' }}
+        {{ hasActiveFilters ? 'Try adjusting your filters or rephrasing your search.' : 'Recipes will appear here once published.' }}
       </p>
       <UButton v-if="hasActiveFilters" class="mt-4" variant="soft" @click="clearFilters">
         Clear filters
       </UButton>
     </div>
 
-    <!-- Grid -->
-    <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+    <!-- Masonry (CSS columns) -->
+    <div v-else class="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
       <NuxtLink
         v-for="video in videos"
         :key="video.id"
         :to="`/recipe/${video.id}`"
-        class="group bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+        class="group block break-inside-avoid mb-4 bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all"
       >
-        <!-- Thumbnail -->
+        <!-- Thumbnail (native 9:16 aspect for vertical shorts) -->
         <div class="relative aspect-9/16 bg-neutral-100">
           <video
             :src="getVideoUrl(video.video_path)"
             class="w-full h-full object-cover"
+            :class="{ 'blur-md scale-110': isLocked(video) }"
             preload="metadata"
+            muted
+            playsinline
           />
-          <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+          <div
+            v-if="isLocked(video)"
+            class="absolute inset-0 bg-black/40 flex items-center justify-center"
+          >
+            <UIcon name="i-ph-lock-fill" class="w-8 h-8 text-white drop-shadow-lg" />
+          </div>
+          <div
+            v-else
+            class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+          >
             <UIcon
-              name="i-ph-play-circle"
-              class="w-10 h-10 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              name="i-ph-play-circle-fill"
+              class="w-12 h-12 text-white drop-shadow-lg"
             />
           </div>
-          <!-- Duration badge -->
-          <div v-if="video.duration_seconds && video.duration_seconds < 3600" class="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
-            {{ Math.floor(video.duration_seconds / 60) }}:{{ String(Math.round(video.duration_seconds % 60)).padStart(2, '0') }}
+          <!-- Premium badge -->
+          <div
+            v-if="video.is_premium"
+            class="absolute top-2 left-2 bg-primary text-white text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider flex items-center gap-1"
+          >
+            <UIcon name="i-ph-crown-simple-fill" class="w-3 h-3" />
+            Pro
           </div>
-          <!-- Logic Flow Badge -->
-          <div v-if="video.logic_flow" class="absolute top-2 left-2">
-            <UBadge size="xs" color="primary" variant="solid">
-              {{ getLogicFlowShortName((video.logic_flow as any).name || '') }}
-            </UBadge>
+          <!-- Duration badge -->
+          <div
+            v-if="formatDuration(video.duration_seconds)"
+            class="absolute bottom-2 right-2 bg-black/70 text-white text-[11px] px-1.5 py-0.5 rounded font-medium"
+          >
+            {{ formatDuration(video.duration_seconds) }}
           </div>
         </div>
 
         <!-- Info -->
         <div class="p-3">
-          <p class="text-sm font-medium line-clamp-2">
+          <p class="text-sm font-medium line-clamp-2 text-default">
             {{ video.title || video.creator_handle || 'Untitled' }}
           </p>
-          <div class="flex flex-wrap gap-1 mt-2">
+          <div v-if="video.creator_handle" class="text-xs text-muted mt-0.5">
+            @{{ video.creator_handle }}
+          </div>
+          <div v-if="(video.semantic_tags || []).length" class="flex flex-wrap gap-1 mt-2">
             <UBadge
-              v-for="tag in (video.semantic_tags || []).slice(0, 2)"
+              v-for="tag in (video.semantic_tags || []).slice(0, 3)"
               :key="tag"
               size="xs"
               color="neutral"
@@ -226,6 +216,24 @@ const showInterpretation = computed(() => {
           </div>
         </div>
       </NuxtLink>
+    </div>
+
+    <!-- Anon teaser footer: prompt to sign up for the full catalogue -->
+    <div
+      v-if="isAnon && videos.length > 0 && !loading"
+      class="mt-10 bg-white border border-default rounded-2xl p-6 md:p-8 text-center space-y-3"
+    >
+      <UIcon name="i-ph-lock-key" class="w-8 h-8 text-primary mx-auto" />
+      <h3 class="text-lg font-semibold">
+        You're seeing the first {{ teaserLimit || videos.length }} recipes
+      </h3>
+      <p class="text-muted text-sm max-w-md mx-auto">
+        Create a free account to browse the full catalogue. Premium recipes require a Pro subscription.
+      </p>
+      <div class="flex flex-wrap gap-2 justify-center pt-2">
+        <UButton to="/register" size="lg" icon="i-ph-user-plus">Sign up — it's free</UButton>
+        <UButton to="/login" size="lg" variant="ghost">Log in</UButton>
+      </div>
     </div>
   </div>
 </template>

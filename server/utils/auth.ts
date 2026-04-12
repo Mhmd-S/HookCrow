@@ -1,9 +1,10 @@
 import type { H3Event } from 'h3'
-import type { UserRole } from '~/types'
+import type { SubscriptionStatus, UserRole } from '~/types'
 
 export interface ServerUser {
   id: string
   role: UserRole
+  subscriptionStatus: SubscriptionStatus
 }
 
 /**
@@ -22,16 +23,17 @@ export async function getServerUser(event: H3Event): Promise<ServerUser | null> 
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, subscription_status')
     .eq('id', user.id)
     .single()
 
-  return { id: user.id, role: (profile?.role as UserRole) || 'user' }
+  return {
+    id: user.id,
+    role: (profile?.role as UserRole) || 'user',
+    subscriptionStatus: (profile?.subscription_status as SubscriptionStatus) || 'free'
+  }
 }
 
-/**
- * Require authentication. Throws 401 if not authenticated.
- */
 export async function requireAuth(event: H3Event): Promise<ServerUser> {
   const user = await getServerUser(event)
   if (!user) {
@@ -40,9 +42,6 @@ export async function requireAuth(event: H3Event): Promise<ServerUser> {
   return user
 }
 
-/**
- * Require admin role. Throws 401 if not authenticated, 403 if not admin.
- */
 export async function requireAdmin(event: H3Event): Promise<ServerUser> {
   const user = await requireAuth(event)
   if (user.role !== 'admin') {
