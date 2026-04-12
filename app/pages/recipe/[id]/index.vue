@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import type { LockedRecipe, VideoWithSegments, Segment, SkeletalLogicAnalysis, SkeletalLogicSegmentAnalysis } from '~/types'
+import type { LockedRecipe, VideoWithSegments, Segment, SkeletalLogicAnalysis, SkeletalLogicSegmentAnalysis, VideoVisualAnalysis, SegmentVisualAnalysis } from '~/types'
 
 const route = useRoute()
 const videoId = route.params.id as string
 
 const { getVideoUrl } = useVideos()
-const { authHeaders } = useAuth()
+const { authHeaders, isAuthenticated } = useAuth()
+const { isBookmarked, toggleBookmark, fetchBookmarks, loaded: bookmarksLoaded } = useBookmarks()
 
 type RecipeResponse = VideoWithSegments | LockedRecipe
 
@@ -13,6 +14,11 @@ const recipe = ref<RecipeResponse | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 const currentSegment = ref<Segment | null>(null)
+const playerRef = ref<{ seek: (time: number) => void } | null>(null)
+
+function seekTo(time: number) {
+  playerRef.value?.seek(time)
+}
 
 async function loadRecipe() {
   loading.value = true
@@ -30,7 +36,21 @@ async function loadRecipe() {
   }
 }
 
-onMounted(loadRecipe)
+onMounted(() => {
+  loadRecipe()
+  if (isAuthenticated.value && !bookmarksLoaded.value) fetchBookmarks()
+})
+
+const bookmarkBusy = ref(false)
+async function onToggleBookmark() {
+  if (!fullRecipe.value || bookmarkBusy.value) return
+  bookmarkBusy.value = true
+  try {
+    await toggleBookmark(fullRecipe.value)
+  } finally {
+    bookmarkBusy.value = false
+  }
+}
 
 const isLocked = computed(() => recipe.value !== null && 'locked' in recipe.value && recipe.value.locked === true)
 const fullRecipe = computed<VideoWithSegments | null>(() => (isLocked.value ? null : (recipe.value as VideoWithSegments | null)))
@@ -44,8 +64,16 @@ const skeletalLogic = computed<SkeletalLogicAnalysis | null>(() =>
   fullRecipe.value?.skeletal_logic as unknown as SkeletalLogicAnalysis ?? null
 )
 
+const visualAnalysis = computed<VideoVisualAnalysis | null>(() =>
+  fullRecipe.value?.visual_analysis as unknown as VideoVisualAnalysis ?? null
+)
+
 function getSkeletalSegment(index: number): SkeletalLogicSegmentAnalysis | null {
   return skeletalLogic.value?.segments?.[index] ?? null
+}
+
+function getVisualSegment(index: number): SegmentVisualAnalysis | null {
+  return visualAnalysis.value?.segments?.[index] ?? null
 }
 </script>
 
@@ -77,23 +105,32 @@ function getSkeletalSegment(index: number): SkeletalLogicSegmentAnalysis | null 
         <div class="lg:sticky lg:top-6 space-y-4">
           <div class="aspect-9/16 bg-black rounded-2xl overflow-hidden shadow-sm ring-1 ring-neutral-200">
             <VideoPlayer
+              ref="playerRef"
               :src="videoUrl"
               :segments="fullRecipe.segments"
               @segment-change="(s: Segment | null) => currentSegment = s"
             />
           </div>
 
-          <div>
-            <h1 class="text-xl font-bold text-default leading-tight">
-              {{ fullRecipe.title || fullRecipe.creator_handle || 'Video Recipe' }}
-            </h1>
-            <div v-if="fullRecipe.creator_handle" class="flex items-center gap-1.5 mt-1.5 text-sm text-muted">
-              <UIcon name="i-ph-user-circle" class="w-4 h-4" />
-              <span>@{{ fullRecipe.creator_handle }}</span>
-              <span v-if="fullRecipe.platform" class="text-dimmed">·</span>
-              <span v-if="fullRecipe.platform" class="text-dimmed">{{ fullRecipe.platform }}</span>
+            <div class="flex items-center justify-between gap-2 mt-1.5">
+              <div v-if="fullRecipe.creator_handle" class="flex items-center gap-1.5 text-sm text-muted">
+                <UIcon name="i-ph-user-circle" class="w-4 h-4" />
+                <span>@{{ fullRecipe.creator_handle }}</span>
+                <span v-if="fullRecipe.platform" class="text-dimmed">·</span>
+                <span v-if="fullRecipe.platform" class="text-dimmed">{{ fullRecipe.platform }}</span>
+              </div>
+              <UButton
+                v-if="isAuthenticated"
+                :icon="isBookmarked(fullRecipe.id) ? 'i-ph-bookmark-simple-fill' : 'i-ph-bookmark-simple'"
+                size="sm"
+                variant="ghost"
+                color="neutral"
+                :loading="bookmarkBusy"
+                :class="isBookmarked(fullRecipe.id) ? 'text-primary' : ''"
+                :aria-label="isBookmarked(fullRecipe.id) ? 'Remove bookmark' : 'Bookmark recipe'"
+                @click="onToggleBookmark"
+              />
             </div>
-          </div>
 
           <div v-if="(fullRecipe.semantic_tags || []).length" class="flex flex-wrap gap-1.5">
             <UBadge
@@ -110,39 +147,23 @@ function getSkeletalSegment(index: number): SkeletalLogicSegmentAnalysis | null 
       </aside>
 
       <div class="flex-1 min-w-0 space-y-8">
-        <section v-if="skeletalLogic?.overview">
-          <h2 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-2">Overview</h2>
-          <p class="text-base leading-relaxed text-default">{{ skeletalLogic.overview }}</p>
-        </section>
-
         <RecipeScriptTemplate :blueprint="fullRecipe.script_blueprint" />
 
         <section v-if="fullRecipe.segments.length > 0">
           <h2 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">Step-by-Step Breakdown</h2>
-          <div class="space-y-4">
+          <div class="space-y-2">
             <RecipeSegmentCard
               v-for="(segment, index) in fullRecipe.segments"
               :key="segment.id"
               :segment="segment"
               :segment-index="index"
               :skeletal-logic-segment="getSkeletalSegment(index)"
+              :visual-segment="getVisualSegment(index)"
+              @seek="seekTo"
             />
           </div>
         </section>
 
-        <section v-if="skeletalLogic?.keyTakeaways?.length">
-          <h2 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-2">Key Takeaways</h2>
-          <ul class="space-y-2">
-            <li
-              v-for="(item, idx) in skeletalLogic.keyTakeaways"
-              :key="idx"
-              class="flex items-start gap-2 text-sm text-default leading-relaxed"
-            >
-              <UIcon name="i-ph-sparkle" class="w-4 h-4 text-primary mt-0.5 shrink-0" />
-              <span>{{ item }}</span>
-            </li>
-          </ul>
-        </section>
       </div>
     </div>
   </div>

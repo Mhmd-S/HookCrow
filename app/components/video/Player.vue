@@ -116,34 +116,34 @@ defineExpose({ seek, currentTime, duration })
     </div>
 
     <!-- Floating Controls -->
-    <div class="absolute bottom-0 left-0 right-0 p-3 bg-inverted-to-t from-muted to-transparent">
+    <div class="absolute bottom-0 left-0 right-0 px-4 py-3 bg-black/80 backdrop-blur-md border-t border-white/10 shadow-[0_-8px_24px_rgba(0,0,0,0.4)]">
       <!-- Control Buttons -->
-      <div class="flex items-center justify-between mb-2">
-        <div class="flex items-center gap-1">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
           <UButton
-            :icon="playing ? 'i-ph-pause' : 'i-ph-play'"
-            variant="ghost"
-            color="neutral"
-            size="xs"
+            :icon="playing ? 'i-ph-pause-fill' : 'i-ph-play-fill'"
+            variant="solid"
+            color="primary"
+            size="md"
             @click="togglePlay"
           />
           <UButton
-            :icon="muted ? 'i-ph-speaker-slash' : 'i-ph-speaker-high'"
-            variant="ghost"
+            :icon="muted ? 'i-ph-speaker-slash-fill' : 'i-ph-speaker-high-fill'"
+            variant="soft"
             color="neutral"
-            size="xs"
+            size="md"
             @click="toggleMute"
           />
         </div>
 
-        <span class="text-muted text-xs font-mono">
+        <span class="text-white text-sm font-mono font-semibold tracking-wide tabular-nums">
           {{ formatTime(currentTime) }} / {{ formatTime(duration) }}
         </span>
       </div>
 
       <!-- Progress Bar with Segments -->
       <div
-        class="relative h-1.5 bg-accented rounded-full cursor-pointer overflow-hidden"
+        class="relative h-2.5 bg-white/20 rounded-full cursor-pointer overflow-hidden ring-1 ring-white/10"
         @click="handleProgressClick"
       >
         <!-- Segment Markers -->

@@ -85,12 +85,6 @@ const getSegmentBadgeClass = (label: string): string => {
         </div>
 
         <div v-else class="flex-1 overflow-y-auto p-4 space-y-4">
-            <!-- Overview -->
-            <div class="rounded-lg border border-muted bg-muted/30 p-3">
-                <div class="text-xs font-medium text-muted mb-1">Overview</div>
-                <div class="text-sm text-default whitespace-pre-wrap">{{ analysis.overview }}</div>
-            </div>
-
             <!-- Per-segment analysis -->
             <div class="space-y-3">
                 <div

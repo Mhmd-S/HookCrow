@@ -130,6 +130,19 @@ CREATE INDEX IF NOT EXISTS idx_segments_video_id ON public.segments(video_id);
 CREATE INDEX IF NOT EXISTS idx_segments_order ON public.segments(video_id, segment_order);
 
 -- -----------------------------------------------------------------------------
+-- bookmarks
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.bookmarks (
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  video_id uuid NOT NULL REFERENCES public.videos(id) ON DELETE CASCADE,
+  created_at timestamp with time zone DEFAULT now(),
+  PRIMARY KEY (user_id, video_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id ON public.bookmarks(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_video_id ON public.bookmarks(video_id);
+
+-- -----------------------------------------------------------------------------
 -- Full-text search on videos (search_document + RPC)
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.videos_search_document_update() RETURNS trigger AS $$
@@ -288,6 +301,11 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.logic_flows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.videos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.segments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bookmarks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "bookmarks self select" ON public.bookmarks FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "bookmarks self insert" ON public.bookmarks FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "bookmarks self delete" ON public.bookmarks FOR DELETE USING (auth.uid() = user_id);
 
 CREATE POLICY "profiles self select" ON public.profiles FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "profiles admin select" ON public.profiles FOR SELECT USING (public.is_admin(auth.uid()));
