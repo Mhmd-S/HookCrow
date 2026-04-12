@@ -27,7 +27,7 @@ export default defineEventHandler(async (event): Promise<ProcessResponse> => {
   log.info('Fetching video record', { videoId })
   const { data: video, error: videoError } = await supabase
     .from('videos')
-    .select('id, video_path, duration_seconds')
+    .select('id, video_path, duration_seconds, title')
     .eq('id', videoId)
     .single()
 
@@ -94,10 +94,11 @@ export default defineEventHandler(async (event): Promise<ProcessResponse> => {
   }
 
   // Single combined call: transcribe + analyze structure
-  const prompt = `Analyze this short-form video. Perform two tasks:
+  const prompt = `Analyze this short-form video. Perform three tasks:
 
-1. TRANSCRIBE: Transcribe all spoken words with timestamps.
-2. ANALYZE STRUCTURE: Identify the video's content structure pattern.
+1. TITLE: Write a concise title (max 80 chars, no quotes, no trailing punctuation) for this short-form marketing video. Capture the specific angle, hook, or product claim the creator is using — not a generic description of the video. Examples of the style we want: "The $0 Cold DM That Booked 12 Calls", "Why Your Landing Page Hook Loses in 3 Seconds", "POV: Launching a SaaS With Zero Audience". Avoid filler like "Video about…", "This video shows…", or emoji.
+2. TRANSCRIBE: Transcribe all spoken words with timestamps.
+3. ANALYZE STRUCTURE: Identify the video's content structure pattern.
 
 Available logic flow patterns:
 ${logicFlowsContext}
@@ -115,6 +116,7 @@ Video duration: ${videoDuration} seconds
 
 Return a JSON object with this exact structure:
 {
+  "title": "concise specific title (max 80 chars)",
   "transcript": "full transcript text",
   "logicFlowName": "detected pattern name from the list above",
   "confidence": 0.0 to 1.0,
@@ -134,6 +136,7 @@ Ensure segments cover the full video duration without overlapping.
 If no speech is detected, still analyze the visual structure and return segments with empty transcript_raw.`
 
   let analysisResult: {
+    title: string | null
     logicFlowId: string | null
     logicFlowName: string
     confidence: number
@@ -172,6 +175,7 @@ If no speech is detected, still analyze the visual structure and return segments
     log.info('Gemini response received', { videoId, responseLength: content.length })
 
     const analysis = JSON.parse(content) as {
+      title?: string
       transcript: string
       logicFlowName: string
       confidence: number
@@ -183,6 +187,10 @@ If no speech is detected, still analyze the visual structure and return segments
         script_blueprint: string
       }>
     }
+
+    const cleanedTitle = analysis.title
+      ? sanitizeString(String(analysis.title)).replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim().slice(0, 200) || null
+      : null
 
     // Match logic flow to database
     let logicFlowId: string | null = null
@@ -212,6 +220,7 @@ If no speech is detected, still analyze the visual structure and return segments
     }
 
     analysisResult = {
+      title: cleanedTitle,
       logicFlowId,
       logicFlowName: analysis.logicFlowName,
       confidence: Math.max(0, Math.min(1, analysis.confidence || 0.5)),
@@ -250,15 +259,23 @@ If no speech is detected, still analyze the visual structure and return segments
     })
   }
 
-  // Update video record
-  log.info('Updating video record', { videoId, logicFlowId: analysisResult.logicFlowId })
+  // Update video record. Only fill title if the admin hasn't set one.
+  const shouldSetTitle = !video.title && !!analysisResult.title
+  log.info('Updating video record', {
+    videoId,
+    logicFlowId: analysisResult.logicFlowId,
+    settingTitle: shouldSetTitle
+  })
+  const videoUpdate: Record<string, unknown> = {
+    logic_flow_id: analysisResult.logicFlowId,
+    script_raw: analysisResult.transcript,
+    duration_seconds: videoDuration
+  }
+  if (shouldSetTitle) videoUpdate.title = analysisResult.title
+
   const { error: updateError } = await supabase
     .from('videos')
-    .update({
-      logic_flow_id: analysisResult.logicFlowId,
-      script_raw: analysisResult.transcript,
-      duration_seconds: videoDuration
-    })
+    .update(videoUpdate)
     .eq('id', videoId)
 
   if (updateError) {

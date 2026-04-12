@@ -7,6 +7,7 @@ const props = defineProps<{
   segmentIndex: number
   skeletalLogicSegment: SkeletalLogicSegmentAnalysis | null
   visualSegment?: SegmentVisualAnalysis | null
+  active?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -43,15 +44,16 @@ const timeRange = computed(() => {
   return `${start} – ${end}`
 })
 
-const scriptOpen = ref(false)
-function toggleScript() {
-  scriptOpen.value = !scriptOpen.value
+const userToggled = ref(false)
+const manualOpen = ref(false)
+const open = computed(() => userToggled.value ? manualOpen.value : !!props.active)
+function toggle() {
+  manualOpen.value = !open.value
+  userToggled.value = true
 }
-
-const visualOpen = ref(false)
-function toggleVisual() {
-  visualOpen.value = !visualOpen.value
-}
+watch(() => props.active, () => {
+  userToggled.value = false
+})
 
 const hasVisual = computed(() => {
   const v = props.visualSegment
@@ -66,7 +68,6 @@ const hasVisual = computed(() => {
     v.text_overlays?.items?.length ||
     v.transitions ||
     v.visual_pacing ||
-    v.branding_elements?.length ||
     v.detected_visual_tags?.length
   )
 })
@@ -86,7 +87,12 @@ function copyBlueprint() {
     :class="theme.accent"
   >
     <!-- Header -->
-    <div class="flex items-center gap-3 px-3 py-2">
+    <button
+      type="button"
+      class="w-full flex items-center gap-3 px-3 py-2 text-left"
+      :disabled="!segment.script_blueprint && !hasVisual"
+      @click="toggle"
+    >
       <span
         class="text-[10px] font-mono tabular-nums text-neutral-300 w-5 shrink-0"
       >
@@ -99,7 +105,7 @@ function copyBlueprint() {
       >
         {{ segment.label }}
       </span>
-      <span class="text-[11px] text-neutral-400 font-mono tabular-nums shrink-0">{{ timeRange }}</span>
+      <span class="text-[11px] text-neutral-800 font-bold tabular-nums shrink-0">{{ timeRange }}</span>
       <p
         v-if="skeletalLogicSegment?.goal"
         class="flex-1 min-w-0 text-[13px] text-neutral-600 truncate"
@@ -107,109 +113,83 @@ function copyBlueprint() {
       >
         {{ skeletalLogicSegment.goal }}
       </p>
+      <UIcon
+        v-if="segment.script_blueprint || hasVisual"
+        name="i-ph-caret-right"
+        class="w-3 h-3 text-neutral-400 shrink-0 transition-transform duration-200"
+        :class="open ? 'rotate-90' : ''"
+      />
       <UButton
         icon="i-ph-play-circle"
         size="xs"
         variant="ghost"
         color="neutral"
         class="shrink-0"
-        @click="emit('seek', segment.start_time)"
+        @click.stop="emit('seek', segment.start_time)"
       />
-    </div>
+    </button>
 
     <div
       v-if="segment.script_blueprint || hasVisual"
-      class="px-3 pb-2 flex items-center gap-3 text-[11px] border-t border-neutral-100 pt-2"
+      class="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
+      :class="open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
     >
-      <button
-        v-if="segment.script_blueprint"
-        type="button"
-        class="flex items-center gap-1 font-medium uppercase tracking-wide text-neutral-400 hover:text-neutral-600 transition-colors"
-        @click.stop="toggleScript"
-      >
-        <UIcon
-          :name="scriptOpen ? 'i-ph-caret-down' : 'i-ph-caret-right'"
-          class="w-3 h-3"
-        />
-        Script
-      </button>
-      <button
-        v-if="hasVisual"
-        type="button"
-        class="flex items-center gap-1 font-medium uppercase tracking-wide text-neutral-400 hover:text-neutral-600 transition-colors"
-        @click.stop="toggleVisual"
-      >
-        <UIcon
-          :name="visualOpen ? 'i-ph-caret-down' : 'i-ph-caret-right'"
-          class="w-3 h-3"
-        />
-        Visual
-      </button>
-      <UButton
-        v-if="segment.script_blueprint"
-        :icon="copied ? 'i-ph-check' : 'i-ph-copy-simple'"
-        size="xs"
-        variant="ghost"
-        color="neutral"
-        class="ml-auto"
-        :class="copied ? 'text-emerald-500!' : ''"
-        :aria-label="copied ? 'Copied' : 'Copy script'"
-        @click.stop="copyBlueprint"
-      />
-    </div>
-
-    <div
-      v-if="scriptOpen && segment.script_blueprint"
-      class="px-3 pb-3"
-    >
-      <div
-        class="font-mono text-[13px] leading-relaxed bg-neutral-50/80 rounded-lg p-3 ring-1 ring-neutral-100 whitespace-pre-wrap text-neutral-600"
-        v-html="highlightPlaceholders(segment.script_blueprint)"
-      />
-    </div>
-
-    <div
-      v-if="visualOpen && visualSegment"
-      class="px-3 pb-3 space-y-2 text-[12px] text-neutral-600"
-    >
-      <div v-if="visualSegment.text_overlays?.items?.length">
-        <span class="text-[10px] uppercase tracking-wide text-neutral-700 font-bold">Text overlays</span>
-        <ul class="mt-1 space-y-0.5">
-          <li v-for="(t, i) in visualSegment.text_overlays.items" :key="i">
-            <span class="font-medium">“{{ t.text }}”</span>
-            <span v-if="t.style || t.position" class="text-neutral-400">
-              — {{ [t.style, t.position].filter(Boolean).join(', ') }}
-            </span>
-          </li>
-        </ul>
-      </div>
-
-      <div v-if="visualSegment.transitions">
-        <span class="text-[10px] uppercase tracking-wide text-neutral-700 font-bold">Transition</span>
-        <span class="ml-1.5">{{ visualSegment.transitions.type }}</span>
-        <span v-if="visualSegment.transitions.description" class="text-neutral-400"> — {{ visualSegment.transitions.description }}</span>
-      </div>
-
-      <div v-if="visualSegment.visual_pacing">
-        <span class="text-[10px] uppercase tracking-wide text-neutral-700 font-bold">Pacing</span>
-        <span class="ml-1.5">{{ visualSegment.visual_pacing }}</span>
-      </div>
-
-      <div v-if="visualSegment.detected_visual_tags?.length" class="flex flex-wrap gap-1.5">
-        <UBadge
-          v-for="tag in visualSegment.detected_visual_tags"
-          :key="tag"
-          size="sm"
-          color="primary"
-          variant="subtle"
+      <div class="overflow-hidden min-h-0">
+        <div
+          v-if="segment.script_blueprint"
+          class="px-3 pb-3 pt-1 border-t border-neutral-100"
         >
-          {{ tag }}
-        </UBadge>
-      </div>
+          <div class="relative">
+            <div
+              class="font-mono text-[13px] leading-relaxed bg-neutral-50/80 rounded-lg p-3 ring-1 ring-neutral-100 whitespace-pre-wrap text-neutral-600"
+              v-html="highlightPlaceholders(segment.script_blueprint)"
+            />
+            <UButton
+              :icon="copied ? 'i-ph-check' : 'i-ph-copy-simple'"
+              size="xs"
+              variant="ghost"
+              color="neutral"
+              class="absolute top-1.5 right-1.5"
+              :class="copied ? 'text-emerald-500!' : ''"
+              :aria-label="copied ? 'Copied' : 'Copy script'"
+              @click.stop="copyBlueprint"
+            />
+          </div>
+        </div>
 
-      <div v-if="visualSegment.branding_elements?.length" class="text-neutral-500">
-        <span class="text-[10px] uppercase tracking-wide text-neutral-400">Branding</span>
-        <span class="ml-1.5">{{ visualSegment.branding_elements.join(', ') }}</span>
+        <div
+          v-if="hasVisual && visualSegment"
+          class="px-3 pb-3 pt-1 space-y-2 text-[12px] text-neutral-600"
+          :class="!segment.script_blueprint ? 'border-t border-neutral-100' : ''"
+        >
+          <div v-if="visualSegment.text_overlays?.items?.length">
+            <span class="text-[10px] uppercase tracking-wide text-neutral-700 font-bold">Text overlays</span>
+            <ul class="mt-1 space-y-0.5">
+              <li v-for="(t, i) in visualSegment.text_overlays.items" :key="i">
+                <span class="font-medium">“{{ t.text }}”</span>
+                <span v-if="t.style || t.position" class="text-neutral-400">
+                  — {{ [t.style, t.position].filter(Boolean).join(', ') }}
+                </span>
+              </li>
+            </ul>
+          </div>
+
+          <div v-if="visualSegment.transitions">
+            <span class="text-[10px] uppercase tracking-wide text-neutral-700 font-bold">Transition</span>
+            <span class="ml-1.5">{{ visualSegment.transitions.type }}</span>
+            <span v-if="visualSegment.transitions.description" class="text-neutral-400"> — {{ visualSegment.transitions.description }}</span>
+          </div>
+
+          <div v-if="visualSegment.visual_pacing">
+            <span class="text-[10px] uppercase tracking-wide text-neutral-700 font-bold">Pacing</span>
+            <span class="ml-1.5">{{ visualSegment.visual_pacing }}</span>
+          </div>
+
+          <div v-if="visualSegment.scene_composition" class="text-neutral-500">
+            <span class="text-[10px] uppercase tracking-wide text-neutral-700 font-bold">Composition</span>
+            <span class="ml-1.5">{{ visualSegment.scene_composition }}</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>

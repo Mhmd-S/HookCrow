@@ -93,74 +93,52 @@ function getVisualSegment(index: number): SegmentVisualAnalysis | null {
     </div>
 
     <!-- Paywall -->
-    <PaywallCard
-      v-else-if="lockedRecipe"
-      :recipe="lockedRecipe"
-      :video-url="videoUrl"
-    />
+    <PaywallCard v-else-if="lockedRecipe" :recipe="lockedRecipe" :video-url="videoUrl" />
 
     <!-- Full recipe -->
     <div v-else-if="fullRecipe" class="flex flex-col lg:flex-row gap-8 p-6 max-w-7xl mx-auto">
-      <aside class="lg:w-80 shrink-0">
-        <div class="lg:sticky lg:top-6 space-y-4">
-          <div class="aspect-9/16 bg-black rounded-2xl overflow-hidden shadow-sm ring-1 ring-neutral-200">
-            <VideoPlayer
-              ref="playerRef"
-              :src="videoUrl"
-              :segments="fullRecipe.segments"
-              @segment-change="(s: Segment | null) => currentSegment = s"
-            />
+      <aside class="lg:w-86 shrink-0">
+          <div class="lg:sticky lg:top-6 aspect-9/16 bg-black rounded-2xl overflow-hidden shadow-sm ring-1 ring-neutral-200">
+            <VideoPlayer ref="playerRef" :src="videoUrl" :segments="fullRecipe.segments"
+              @segment-change="(s: Segment | null) => currentSegment = s" />
           </div>
-
-            <div class="flex items-center justify-between gap-2 mt-1.5">
-              <div v-if="fullRecipe.creator_handle" class="flex items-center gap-1.5 text-sm text-muted">
-                <UIcon name="i-ph-user-circle" class="w-4 h-4" />
-                <span>@{{ fullRecipe.creator_handle }}</span>
-                <span v-if="fullRecipe.platform" class="text-dimmed">·</span>
-                <span v-if="fullRecipe.platform" class="text-dimmed">{{ fullRecipe.platform }}</span>
-              </div>
-              <UButton
-                v-if="isAuthenticated"
-                :icon="isBookmarked(fullRecipe.id) ? 'i-ph-bookmark-simple-fill' : 'i-ph-bookmark-simple'"
-                size="sm"
-                variant="ghost"
-                color="neutral"
-                :loading="bookmarkBusy"
-                :class="isBookmarked(fullRecipe.id) ? 'text-primary' : ''"
-                :aria-label="isBookmarked(fullRecipe.id) ? 'Remove bookmark' : 'Bookmark recipe'"
-                @click="onToggleBookmark"
-              />
-            </div>
-
-          <div v-if="(fullRecipe.semantic_tags || []).length" class="flex flex-wrap gap-1.5">
-            <UBadge
-              v-for="tag in fullRecipe.semantic_tags"
-              :key="tag"
-              size="sm"
-              color="neutral"
-              variant="subtle"
-            >
-              {{ tag }}
-            </UBadge>
-          </div>
-        </div>
       </aside>
 
-      <div class="flex-1 min-w-0 space-y-8">
+      <div class="flex-1 min-w-0 space-y-6">
+        <div class="flex items-start gap-3">
+          <h1 v-if="fullRecipe.title" class="flex-1 text-2xl font-semibold tracking-tight text-highlighted">
+            {{ fullRecipe.title }}
+          </h1>
+          <UButton
+            v-if="isAuthenticated"
+            :icon="isBookmarked(fullRecipe.id) ? 'i-ph-bookmark-simple-fill' : 'i-ph-bookmark-simple'"
+            :color="isBookmarked(fullRecipe.id) ? 'primary' : 'neutral'"
+            variant="soft"
+            size="md"
+            :loading="bookmarkBusy"
+            :aria-label="isBookmarked(fullRecipe.id) ? 'Remove bookmark' : 'Add bookmark'"
+            @click="onToggleBookmark"
+          />
+        </div>
+
         <RecipeScriptTemplate :blueprint="fullRecipe.script_blueprint" />
+
+        <div v-if="(fullRecipe.semantic_tags || []).length" class="flex flex-wrap gap-1.5">
+          <span
+            v-for="tag in fullRecipe.semantic_tags"
+            :key="tag"
+            class="inline-flex items-center text-[11px] font-medium tracking-wide text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full"
+          >
+            {{ tag }}
+          </span>
+        </div>
 
         <section v-if="fullRecipe.segments.length > 0">
           <h2 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">Step-by-Step Breakdown</h2>
           <div class="space-y-2">
-            <RecipeSegmentCard
-              v-for="(segment, index) in fullRecipe.segments"
-              :key="segment.id"
-              :segment="segment"
-              :segment-index="index"
-              :skeletal-logic-segment="getSkeletalSegment(index)"
-              :visual-segment="getVisualSegment(index)"
-              @seek="seekTo"
-            />
+            <RecipeSegmentCard v-for="(segment, index) in fullRecipe.segments" :key="segment.id" :segment="segment"
+              :segment-index="index" :skeletal-logic-segment="getSkeletalSegment(index)"
+              :visual-segment="getVisualSegment(index)" :active="currentSegment?.id === segment.id" @seek="seekTo" />
           </div>
         </section>
 

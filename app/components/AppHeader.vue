@@ -95,14 +95,6 @@ const avatarInitial = computed(() =>
       <NuxtLink to="/" class="flex items-center">
         <span class="flex items-center justify-center w-8 h-8 rounded-full bg-black text-white font-black text-lg leading-none">M</span>
       </NuxtLink>
-      <nav class="hidden md:flex items-center gap-5">
-        <NuxtLink
-          to="/"
-          class="text-sm font-semibold text-default hover:text-neutral-600 transition-colors"
-        >
-          Recipes
-        </NuxtLink>
-      </nav>
     </div>
 
     <!-- Center: Pill search -->
