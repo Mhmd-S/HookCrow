@@ -30,8 +30,8 @@ function select(domain: string | null) {
         type="button"
         class="shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
         :class="modelValue === null
-          ? 'bg-primary text-white'
-          : 'bg-neutral-100 text-default hover:bg-neutral-200'"
+          ? 'bg-primary text-inverted'
+          : 'bg-elevated text-default hover:bg-accented'"
         @click="select(null)"
       >
         All
@@ -42,8 +42,8 @@ function select(domain: string | null) {
         type="button"
         class="shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
         :class="modelValue === domain
-          ? 'bg-primary text-white'
-          : 'bg-neutral-100 text-default hover:bg-neutral-200'"
+          ? 'bg-primary text-inverted'
+          : 'bg-elevated text-default hover:bg-accented'"
         @click="select(domain)"
       >
         {{ domain }}

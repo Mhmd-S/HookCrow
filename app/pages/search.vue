@@ -80,7 +80,7 @@ function formatDuration(seconds: number | null): string | null {
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto px-6 py-8 space-y-6">
+  <div class="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-6">
     <!-- Results header -->
     <header class="flex flex-wrap items-center justify-between gap-3">
       <div>
@@ -116,12 +116,12 @@ function formatDuration(seconds: number | null): string | null {
     
     <!-- Loading -->
     <div v-if="loading" class="flex items-center justify-center py-20">
-      <UIcon name="i-ph-circle-notch" class="w-8 h-8 animate-spin text-neutral-400" />
+      <UIcon name="i-ph-circle-notch" class="w-8 h-8 animate-spin text-dimmed" />
     </div>
 
     <!-- Empty -->
     <div v-else-if="videos.length === 0" class="text-center py-20">
-      <UIcon name="i-ph-video" class="w-16 h-16 mx-auto text-neutral-300" />
+      <UIcon name="i-ph-video" class="w-16 h-16 mx-auto text-dimmed" />
       <h3 class="mt-4 text-lg font-medium">No templates found</h3>
       <p class="mt-2 text-muted max-w-md mx-auto">
         <template v-if="filters.search.trim()">
@@ -140,7 +140,7 @@ function formatDuration(seconds: number | null): string | null {
           v-for="example in EMPTY_STATE_EXAMPLES"
           :key="example"
           type="button"
-          class="px-3 py-1.5 rounded-full text-sm bg-white ring-1 ring-neutral-200 hover:ring-neutral-300 hover:bg-neutral-50 text-default transition-colors"
+          class="px-3 py-1.5 rounded-full text-sm bg-default ring-1 ring-default hover:ring-accented hover:bg-muted text-default transition-colors"
           @click="trySearch(example)"
         >
           {{ example }}
@@ -158,7 +158,7 @@ function formatDuration(seconds: number | null): string | null {
         v-for="video in videos"
         :key="video.id"
         :to="`/recipe/${video.id}`"
-        class="group block break-inside-avoid mb-4 bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all"
+        class="group block break-inside-avoid mb-4 bg-default rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all"
       >
         <div class="relative aspect-9/16 bg-neutral-100">
           <video
@@ -183,7 +183,7 @@ function formatDuration(seconds: number | null): string | null {
           </div>
           <div
             v-if="video.is_premium"
-            class="absolute top-2 left-2 bg-primary text-white text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider flex items-center gap-1"
+            class="absolute top-2 left-2 bg-primary text-inverted text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider flex items-center gap-1"
           >
             <UIcon name="i-ph-crown-simple-fill" class="w-3 h-3" />
             Pro
@@ -221,7 +221,7 @@ function formatDuration(seconds: number | null): string | null {
     <!-- Anon invite footer: browsing is open; sign-up unlocks bookmarking & Pro content -->
     <div
       v-if="isAnon && videos.length > 0 && !loading"
-      class="mt-10 bg-white border border-default rounded-2xl p-6 md:p-8 text-center space-y-3"
+      class="mt-10 bg-default border border-default rounded-2xl p-6 md:p-8 text-center space-y-3"
     >
       <UIcon name="i-ph-bookmark-simple" class="w-8 h-8 text-primary mx-auto" />
       <h3 class="text-lg font-semibold">

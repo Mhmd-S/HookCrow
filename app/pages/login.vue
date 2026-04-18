@@ -40,7 +40,7 @@ async function onSubmit(event: FormSubmitEvent<{ email: string; password: string
 </script>
 
 <template>
-  <div class="min-h-screen bg-neutral-50 flex items-center justify-center px-4">
+  <div class="min-h-screen bg-muted flex items-center justify-center px-4">
     <UPageCard class="w-full max-w-md">
       <UAuthForm
         title="Welcome back"

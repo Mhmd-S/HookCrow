@@ -160,6 +160,7 @@ export default defineEventHandler(async (event) => {
     status: row.status,
     is_premium: row.is_premium,
     created_at: row.created_at,
+    search_rank: row.search_rank,
     logic_flow: row.logic_flow_name ? {
       id: row.logic_flow_id,
       name: row.logic_flow_name,

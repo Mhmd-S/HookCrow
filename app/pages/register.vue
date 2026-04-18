@@ -41,11 +41,11 @@ async function onSubmit(event: FormSubmitEvent<{ displayName?: string; email: st
 </script>
 
 <template>
-  <div class="min-h-screen bg-neutral-50 flex items-center justify-center px-4">
+  <div class="min-h-screen bg-muted flex items-center justify-center px-4">
     <UPageCard class="w-full max-w-md">
       <UAuthForm
         title="Create account"
-        description="Get started with Video Anatomizer"
+        description="Get started with Skelet"
         icon="i-ph-user-plus"
         :fields="fields"
         :loading="submitting"

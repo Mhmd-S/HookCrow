@@ -4,7 +4,7 @@ const { isAdmin } = useAuth()
 </script>
 
 <template>
-  <div class="h-screen flex overflow-hidden bg-neutral-50">
+  <div class="h-screen flex overflow-hidden bg-muted">
     <!-- Mobile backdrop (admin only) -->
     <Transition
       enter-active-class="transition-opacity duration-200"
@@ -36,6 +36,7 @@ const { isAdmin } = useAuth()
 
       <main class="flex-1 overflow-y-auto">
         <slot />
+        <AppFooter v-if="!isAdmin" />
       </main>
     </div>
   </div>

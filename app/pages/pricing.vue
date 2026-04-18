@@ -28,7 +28,7 @@ async function subscribe(plan: SubscriptionPlan) {
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto px-6 py-16">
+  <div class="max-w-4xl mx-auto px-4 md:px-6 py-10 md:py-16">
     <div class="text-center mb-12">
       <p class="text-xs font-semibold uppercase tracking-wider text-primary">Pricing</p>
       <h1 class="text-4xl font-bold mt-2">Go Pro to unlock every recipe</h1>
@@ -45,9 +45,9 @@ async function subscribe(plan: SubscriptionPlan) {
       <UButton to="/account" class="mt-4" variant="soft">Account</UButton>
     </div>
 
-    <div v-else class="grid md:grid-cols-2 gap-6">
+    <div v-else class="grid md:grid-cols-2 gap-4 md:gap-6">
       <!-- Monthly -->
-      <div class="bg-white border border-default rounded-2xl p-8 flex flex-col gap-6">
+      <div class="bg-default border border-default rounded-2xl p-8 flex flex-col gap-6">
         <div>
           <h2 class="text-lg font-semibold">Monthly</h2>
           <p class="text-sm text-muted mt-1">Flexible month-to-month access. Cancel anytime.</p>
@@ -83,7 +83,7 @@ async function subscribe(plan: SubscriptionPlan) {
 
       <!-- Annual -->
       <div class="bg-default border-2 border-primary rounded-2xl p-8 flex flex-col gap-6 relative">
-        <span class="absolute -top-3 right-6 bg-primary text-white text-xs font-semibold px-3 py-1 rounded-full">
+        <span class="absolute -top-3 right-6 bg-primary text-inverted text-xs font-semibold px-3 py-1 rounded-full">
           Best value
         </span>
         <div>

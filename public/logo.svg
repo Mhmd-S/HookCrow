@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 32" aria-label="Skelet" role="img">
+  <rect width="32" height="32" rx="8" fill="#4f46e5"/>
+  <rect x="8" y="10" width="16" height="3" rx="1.5" fill="#ffffff"/>
+  <rect x="8" y="15" width="12" height="3" rx="1.5" fill="#ffffff" opacity="0.75"/>
+  <rect x="8" y="20" width="8" height="3" rx="1.5" fill="#ffffff" opacity="0.5"/>
+  <text
+    x="44" y="22"
+    font-family="Geist, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
+    font-weight="700"
+    font-size="22"
+    letter-spacing="-0.8"
+    fill="currentColor"
+  >skelet</text>
+  <circle cx="143" cy="20" r="3" fill="#4f46e5"/>
+</svg>

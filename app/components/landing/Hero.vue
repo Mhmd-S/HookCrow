@@ -47,7 +47,7 @@ function submit() {
 </script>
 
 <template>
-  <section class="relative overflow-hidden rounded-3xl bg-white ring-1 ring-neutral-200/70 px-6 md:px-12 py-18 md:py-26">
+  <section class="relative overflow-hidden rounded-3xl bg-default ring-1 ring-default px-6 md:px-12 py-18 md:py-26">
     <div
       class="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 h-[60%] bg-gradient-radial from-indigo-50/60 via-transparent to-transparent blur-3xl z-0"
       aria-hidden="true"
@@ -57,7 +57,7 @@ function submit() {
       <div
         v-for="{ video, slot } in floatingCards"
         :key="video.id"
-        class="absolute rounded-xl shadow-lg ring-1 ring-black/5 bg-white overflow-hidden"
+        class="absolute rounded-xl shadow-lg ring-1 ring-default bg-default overflow-hidden"
         :class="[slot.pos, slot.w]"
         :style="{ transform: `rotate(${slot.rot})` }"
       >
@@ -75,7 +75,7 @@ function submit() {
 
     <div class="relative z-10 max-w-2xl mx-auto text-center space-y-8">
       <div class="space-y-5">
-        <div class="inline-flex items-center gap-2 h-8 px-3 rounded-full bg-neutral-100 text-sm text-default">
+        <div class="inline-flex items-center gap-2 h-8 px-3 rounded-full bg-elevated text-sm text-default">
           <span class="relative flex h-2 w-2">
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
             <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
@@ -93,18 +93,18 @@ function submit() {
       </div>
 
       <form class="space-y-3" @submit.prevent="submit">
-        <label class="relative flex items-center h-14 md:h-16 bg-white rounded-full ring-1 ring-neutral-200 shadow-sm focus-within:ring-2 focus-within:ring-primary transition-all pl-5 md:pl-6 pr-2 gap-3">
-          <UIcon name="i-ph-magnifying-glass" class="w-5 h-5 text-neutral-400 shrink-0" />
+        <label class="relative flex items-center h-14 md:h-16 bg-default rounded-full ring-1 ring-default shadow-sm focus-within:ring-2 focus-within:ring-primary transition-all pl-5 md:pl-6 pr-2 gap-3">
+          <UIcon name="i-ph-magnifying-glass" class="w-5 h-5 text-dimmed shrink-0" />
           <input
             v-model="searchQuery"
             type="text"
             placeholder="e.g. meal planning app, B2B SaaS, skincare line"
-            class="flex-1 bg-transparent outline-none text-base md:text-lg placeholder:text-neutral-400 min-w-0"
+            class="flex-1 bg-transparent outline-none text-base md:text-lg placeholder:text-dimmed min-w-0"
             autofocus
           >
           <button
             type="submit"
-            class="shrink-0 inline-flex items-center justify-center h-10 md:h-12 px-5 md:px-6 rounded-full bg-black text-white text-sm md:text-base font-semibold hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            class="shrink-0 inline-flex items-center justify-center h-10 md:h-12 px-5 md:px-6 rounded-full bg-primary text-inverted text-sm md:text-base font-semibold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             :disabled="!searchQuery.trim()"
           >
             Find templates
@@ -117,7 +117,7 @@ function submit() {
             v-for="query in EXAMPLE_QUERIES"
             :key="query"
             type="button"
-            class="px-3 py-1 rounded-full text-sm bg-white ring-1 ring-neutral-200 hover:ring-neutral-300 hover:bg-neutral-50 text-default transition-colors"
+            class="px-3 py-1 rounded-full text-sm bg-default ring-1 ring-default hover:ring-accented hover:bg-muted text-default transition-colors"
             @click="goToResults(query)"
           >
             {{ query }}

@@ -19,7 +19,7 @@ onMounted(poll)
 </script>
 
 <template>
-  <div class="max-w-xl mx-auto px-6 py-24 text-center">
+  <div class="max-w-xl mx-auto px-4 md:px-6 py-16 md:py-24 text-center">
     <div v-if="checking && !isPro" class="space-y-4">
       <UIcon name="i-ph-circle-notch" class="w-10 h-10 text-primary animate-spin mx-auto" />
       <h1 class="text-xl font-semibold">Activating your Pro subscription…</h1>

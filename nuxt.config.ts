@@ -4,6 +4,19 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['@nuxt/ui'],
   css: ['~/assets/css/main.css'],
+  app: {
+    head: {
+      titleTemplate: '%s · Skelet',
+      title: 'Skelet — Video anatomy templates for marketers',
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/icon.svg' },
+        { rel: 'alternate icon', href: '/favicon.ico' }
+      ],
+      meta: [
+        { name: 'description', content: 'Skelet breaks down short-form marketing videos into reusable templates — hooks, bridges, and CTAs from creators who sell.' }
+      ]
+    }
+  },
   ui: {
     colorMode: false
   },
