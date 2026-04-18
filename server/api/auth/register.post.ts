@@ -35,8 +35,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, message: 'Failed to create user profile' })
   }
 
-  // Sign in immediately to get a session
-  const { data: session, error: signInError } = await supabase.auth.signInWithPassword({
+  // Sign in immediately to get a session — use a fresh client so the
+  // signed-in session doesn't pollute the shared service-role singleton.
+  const authClient = createServerSupabase()
+  const { data: session, error: signInError } = await authClient.auth.signInWithPassword({
     email,
     password
   })

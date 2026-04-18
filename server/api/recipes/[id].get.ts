@@ -1,8 +1,5 @@
 import type { LockedRecipe, LockedReason } from '~/types'
 
-// Keep this in sync with ANON_TEASER_LIMIT in server/api/browse.get.ts.
-const ANON_TEASER_LIMIT = 6
-
 function buildOverviewTeaser(skeletal: unknown): string | null {
   if (!skeletal || typeof skeletal !== 'object') return null
   const overview = (skeletal as { overview?: unknown }).overview
@@ -40,22 +37,6 @@ function toLocked(
   }
 }
 
-async function isInAnonTeaser(
-  supabase: ReturnType<typeof useServerSupabase>,
-  videoId: string
-): Promise<boolean> {
-  const { data } = await supabase
-    .from('videos')
-    .select('id')
-    .eq('is_published', true)
-    .eq('is_premium', false)
-    .eq('status', 'complete')
-    .order('updated_at', { ascending: false })
-    .limit(ANON_TEASER_LIMIT)
-
-  return (data || []).some(row => row.id === videoId)
-}
-
 export default defineEventHandler(async (event) => {
   const user = await getServerUser(event)
   const id = validateUUID(getRouterParam(event, 'id'))
@@ -90,13 +71,7 @@ export default defineEventHandler(async (event) => {
     return { data }
   }
 
-  // Free recipe: authenticated users always get full detail.
-  if (user) return { data }
-
-  // Anonymous visitors get full detail only for the teaser set.
-  if (await isInAnonTeaser(supabase, data.id)) {
-    return { data }
-  }
-
-  return { data: toLocked(data, 'login_required') }
+  // Free recipe: open to anyone, including anonymous visitors. Bookmarks and
+  // other account-only actions are still gated client-side.
+  return { data }
 })

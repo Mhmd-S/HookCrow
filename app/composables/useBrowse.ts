@@ -4,19 +4,20 @@ interface BrowseVideo extends Video {}
 
 interface SearchInterpretation {
   keywords: string[]
+  marketingAngles: string[]
+  productTerms: string[]
   tags: string[]
-  logicFlowType: string | null
+  logicFlowTypes: string[]
   intent: string
   confidence: number
 }
 
 export function useBrowse() {
-  const { authHeaders, isAuthenticated } = useAuth()
+  const { authHeaders } = useAuth()
   const videos = ref<BrowseVideo[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
   const isAnon = ref(false)
-  const teaserLimit = ref<number | null>(null)
   // Use useState so AppHeader can access the loading state
   const aiSearchLoading = useState('ai-search-loading', () => false)
   const searchInterpretation = useState<SearchInterpretation | null>('search-interpretation', () => null)
@@ -55,31 +56,16 @@ export function useBrowse() {
       const params = new URLSearchParams()
       const searchTerm = filters.value.search.trim()
 
-      // AI interpretation is a Pro-side affordance; skip entirely for anon callers
-      // since /api/search/interpret requires auth and would 401.
-      if (searchTerm.length >= 3 && isAuthenticated.value) {
-        const interpretation = await interpretSearch(searchTerm)
-
-        if (interpretation && interpretation.confidence > 0.3) {
-          // Merge interpreted tags with existing filter tags
-          const allTags = [...filters.value.tags, ...interpretation.tags]
-          const uniqueTags = [...new Set(allTags)]
-          if (uniqueTags.length > 0) {
-            params.set('tags', uniqueTags.join(','))
-          }
-
-          // Pass interpreted keywords for full-text search expansion
-          if (interpretation.keywords.length > 0) {
-            params.set('keywords', interpretation.keywords.join(','))
-          }
-
-          // Also pass the original search term for direct matching
-          params.set('search', searchTerm)
-        } else {
-          // Low confidence or no interpretation: pass raw search
-          params.set('search', searchTerm)
-          if (filters.value.tags.length > 0) params.set('tags', filters.value.tags.join(','))
-        }
+      // AI interpretation runs for everyone (anon included) — the endpoint is
+      // rate-limited per IP so anon abuse is bounded. The interpretation is
+      // shown in the UI as click-to-apply suggestions but NEVER fed into the
+      // search query as keyword/tag expansion. OR'ing 10+ broad terms
+      // ("brew", "cold", "ground", "beans" for "coffee") floods results with
+      // tangential matches. The embedding + raw-term tsquery handle recall.
+      if (searchTerm.length >= 3) {
+        await interpretSearch(searchTerm)
+        params.set('search', searchTerm)
+        if (filters.value.tags.length > 0) params.set('tags', filters.value.tags.join(','))
       } else {
         // Short query or empty: standard search
         if (searchTerm) params.set('search', searchTerm)
@@ -98,11 +84,9 @@ export function useBrowse() {
         page: number
         limit: number
         anon?: boolean
-        teaser_limit?: number | null
       }>(url, { headers: authHeaders() })
       videos.value = result.data || []
       isAnon.value = !!result.anon
-      teaserLimit.value = result.teaser_limit ?? null
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to load videos'
     } finally {
@@ -135,7 +119,6 @@ export function useBrowse() {
     error,
     filters,
     isAnon,
-    teaserLimit,
     aiSearchLoading,
     searchInterpretation,
     loadBrowse,

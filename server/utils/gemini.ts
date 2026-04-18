@@ -89,3 +89,26 @@ export async function uploadVideoToGemini(
     } catch { /* ignore */ }
   }
 }
+
+export const EMBEDDING_MODEL = 'gemini-embedding-001'
+export const EMBEDDING_DIM = 768
+
+/**
+ * Embed a single text into a 768-dim vector via Gemini gemini-embedding-001.
+ * The model returns 3072 dims natively; we request 768 via outputDimensionality
+ * (Matryoshka truncation) to match the pgvector column. Input is clipped to
+ * 8000 chars to stay under the model's token budget.
+ */
+export async function embedText(ai: GoogleGenAI, text: string): Promise<number[]> {
+  const input = text.slice(0, 8000)
+  const res = await ai.models.embedContent({
+    model: EMBEDDING_MODEL,
+    contents: input,
+    config: { outputDimensionality: EMBEDDING_DIM }
+  })
+  const values = res.embeddings?.[0]?.values
+  if (!values || values.length === 0) {
+    throw new Error('Gemini embedding returned no values')
+  }
+  return values
+}

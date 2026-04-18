@@ -5,12 +5,51 @@ definePageMeta({ middleware: ['admin'] })
 
 const { fetchVideos, deleteVideo, getVideoUrl } = useVideos()
 const { logicFlows, fetchLogicFlows } = useLogicFlows()
+const { authHeaders } = useAuth()
 
 const videos = ref<Video[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const statusFilter = ref<VideoStatus | 'all'>('all')
 const viewMode = ref<'grid' | 'grouped'>('grouped')
+
+// Backfill state
+const backfillRunning = ref(false)
+const backfillStats = ref<{ processed: number; remaining: number; errors: number }>({
+  processed: 0,
+  remaining: 0,
+  errors: 0
+})
+
+async function runBackfill() {
+  if (backfillRunning.value) return
+  backfillRunning.value = true
+  backfillStats.value = { processed: 0, remaining: 0, errors: 0 }
+
+  try {
+    // Loop until remaining === 0 or 20 batches (safety cap)
+    for (let i = 0; i < 20; i++) {
+      const result = await $fetch<{ processed: number; remaining: number; errors: Array<{ id: string; error: string }> }>(
+        '/api/admin/reembed',
+        {
+          method: 'POST',
+          body: { batchSize: 5 },
+          headers: authHeaders()
+        }
+      )
+      backfillStats.value = {
+        processed: backfillStats.value.processed + result.processed,
+        remaining: result.remaining,
+        errors: backfillStats.value.errors + result.errors.length
+      }
+      if (result.remaining === 0 || (result.processed === 0 && result.errors.length === 0)) break
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Backfill failed'
+  } finally {
+    backfillRunning.value = false
+  }
+}
 
 async function loadVideos() {
   loading.value = true
@@ -99,6 +138,28 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
           <h2 class="text-lg font-semibold">Admin Dashboard</h2>
           <p class="text-muted text-sm mt-1">Manage and analyze videos</p>
         </div>
+        <div class="flex gap-2 items-center">
+          <UButton
+            variant="ghost"
+            size="sm"
+            icon="i-ph-sparkle"
+            :loading="backfillRunning"
+            @click="runBackfill"
+          >
+            Backfill search
+            <template v-if="backfillRunning || backfillStats.processed > 0">
+              <span class="text-xs text-muted">
+                ({{ backfillStats.processed }} done{{ backfillStats.remaining > 0 ? `, ${backfillStats.remaining} left` : '' }}{{ backfillStats.errors > 0 ? `, ${backfillStats.errors} err` : '' }})
+              </span>
+            </template>
+          </UButton>
+          <UButton to="/admin/recipes/new" variant="ghost" size="sm" icon="i-ph-plus">
+            Upload Video
+          </UButton>
+          <UButton to="/admin/recipes/bulk" size="sm" icon="i-ph-stack">
+            Bulk Upload
+          </UButton>
+        </div>
       </div>
 
       <!-- Filter Tabs & View Toggle -->
@@ -157,9 +218,14 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
         <UIcon name="i-ph-video" class="w-16 h-16 mx-auto text-neutral-300 dark:text-neutral-700" />
         <h3 class="mt-4 text-lg font-medium">No videos yet</h3>
         <p class="mt-2 text-neutral-500">Upload your first video to start anatomizing</p>
-        <UButton to="/admin/recipes/new" class="mt-6" icon="i-ph-plus">
-          Upload Video
-        </UButton>
+        <div class="mt-6 flex gap-2 justify-center">
+          <UButton to="/admin/recipes/new" variant="soft" icon="i-ph-plus">
+            Upload Video
+          </UButton>
+          <UButton to="/admin/recipes/bulk" icon="i-ph-stack">
+            Bulk Upload
+          </UButton>
+        </div>
       </div>
 
       <!-- Grouped View -->

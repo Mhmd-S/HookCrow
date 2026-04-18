@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SEMANTIC_TAG_CATEGORIES, type SemanticTag } from '~/types'
+import { SEMANTIC_TAG_CATEGORIES } from '~/types'
 
 const { authHeaders } = useAuth()
 
@@ -30,18 +30,12 @@ const filteredCategories = computed(() => {
   if (!query) {
     return SEMANTIC_TAG_CATEGORIES
   }
-
-  return {
-    domain: SEMANTIC_TAG_CATEGORIES.domain.filter(tag =>
-      tag.toLowerCase().includes(query)
-    ),
-    format: SEMANTIC_TAG_CATEGORIES.format.filter(tag =>
-      tag.toLowerCase().includes(query)
-    ),
-    audience: SEMANTIC_TAG_CATEGORIES.audience.filter(tag =>
-      tag.toLowerCase().includes(query)
-    )
+  const result = {} as Record<keyof typeof SEMANTIC_TAG_CATEGORIES, readonly string[]>
+  for (const key of Object.keys(SEMANTIC_TAG_CATEGORIES) as Array<keyof typeof SEMANTIC_TAG_CATEGORIES>) {
+    result[key] = (SEMANTIC_TAG_CATEGORIES[key] as readonly string[])
+      .filter(tag => tag.toLowerCase().includes(query))
   }
+  return result
 })
 
 function toggleTag(tag: string) {
@@ -72,6 +66,8 @@ async function suggestTags() {
       domain: string[]
       format: string[]
       audience: string[]
+      product_type: string[]
+      production_style: string[]
       confidence: number
     }>('/api/admin/suggest-semantic-tags', {
       method: 'POST',
@@ -83,7 +79,13 @@ async function suggestTags() {
 
     // Merge suggested tags with existing ones
     const newTags = new Set(props.modelValue)
-    ;[...result.domain, ...result.format, ...result.audience].forEach(tag => {
+    ;[
+      ...result.domain,
+      ...result.format,
+      ...result.audience,
+      ...result.product_type,
+      ...result.production_style
+    ].forEach(tag => {
       newTags.add(tag)
     })
 
@@ -95,10 +97,13 @@ async function suggestTags() {
   }
 }
 
-function getTagColor(tag: string): 'primary' | 'success' | 'warning' {
-  if (SEMANTIC_TAG_CATEGORIES.domain.includes(tag as SemanticTag)) return 'primary'
-  if (SEMANTIC_TAG_CATEGORIES.format.includes(tag as SemanticTag)) return 'success'
-  return 'warning'
+function getTagColor(tag: string): 'primary' | 'success' | 'warning' | 'info' | 'neutral' {
+  if ((SEMANTIC_TAG_CATEGORIES.domain as readonly string[]).includes(tag)) return 'primary'
+  if ((SEMANTIC_TAG_CATEGORIES.format as readonly string[]).includes(tag)) return 'success'
+  if ((SEMANTIC_TAG_CATEGORIES.audience as readonly string[]).includes(tag)) return 'warning'
+  if ((SEMANTIC_TAG_CATEGORIES.product_type as readonly string[]).includes(tag)) return 'info'
+  if ((SEMANTIC_TAG_CATEGORIES.production_style as readonly string[]).includes(tag)) return 'neutral'
+  return 'neutral'
 }
 
 function getCategoryLabel(category: string): string {
@@ -109,6 +114,10 @@ function getCategoryLabel(category: string): string {
       return 'Format'
     case 'audience':
       return 'Audience'
+    case 'product_type':
+      return 'Product/Service Type'
+    case 'production_style':
+      return 'Production Style'
     default:
       return category
   }

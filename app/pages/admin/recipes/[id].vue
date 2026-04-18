@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Segment, VideoWithSegments, VideoUpdate, SegmentInsert, Video, SkeletalLogicAnalysis, VideoAudioAnalysis, VideoVisualAnalysis } from '~/types'
+import type { Segment, VideoWithSegments, VideoUpdate, SegmentInsert, Video, SkeletalLogicAnalysis, VideoVisualAnalysis, ProductContext } from '~/types'
 
 definePageMeta({ layout: 'blank', middleware: ['admin'] })
 
@@ -17,13 +17,13 @@ const { videos: libraryVideos, loadLibrary, refreshVideos } = useLibrary()
 
 const video = ref<VideoWithSegments | null>(null)
 const semanticTags = ref<string[]>([])
+const productContext = ref<ProductContext | null>(null)
 const segments = ref<Segment[]>([])
 const loading = ref(true)
 const saving = ref(false)
 const transcribing = ref(false)
 const generatingAll = ref(false)
 const reprocessing = ref(false)
-const analyzingAudio = ref(false)
 const analyzingVisual = ref(false)
 const analyzingSkeletalLogic = ref(false)
 const error = ref<string | null>(null)
@@ -59,6 +59,7 @@ async function loadVideo() {
   video.value = data as VideoWithSegments
   segments.value = data.segments || []
   semanticTags.value = data.semantic_tags || []
+  productContext.value = (data as unknown as { product_context?: ProductContext | null }).product_context ?? null
   loading.value = false
 }
 
@@ -87,7 +88,7 @@ async function handleSave(isAutoSave = false) {
   if (!isAutoSave) successMessage.value = null
 
   try {
-    const videoUpdates: VideoUpdate & { semantic_tags?: string[] } = {
+    const videoUpdates: VideoUpdate & { semantic_tags?: string[]; product_context?: ProductContext | null } = {
       creator_handle: video.value.creator_handle,
       platform: video.value.platform,
       source_url: video.value.source_url,
@@ -96,7 +97,8 @@ async function handleSave(isAutoSave = false) {
       title: video.value.title,
       is_published: video.value.is_published,
       is_premium: video.value.is_premium,
-      semantic_tags: semanticTags.value
+      semantic_tags: semanticTags.value,
+      product_context: productContext.value
     }
 
     const { error: updateErr } = await updateVideo(videoId, videoUpdates)
@@ -280,34 +282,6 @@ async function handleReprocess() {
   }
 }
 
-async function handleAnalyzeAudio() {
-  if (!video.value) return
-
-  analyzingAudio.value = true
-  error.value = null
-
-  try {
-    const result = await $fetch<{
-      success: boolean
-      audioAnalysis: VideoAudioAnalysis
-    }>('/api/admin/analyze-audio', {
-      method: 'POST',
-      body: { videoId },
-      headers: authHeaders()
-    })
-
-    if (result.success && video.value) {
-      ;(video.value as unknown as { audio_analysis?: VideoAudioAnalysis | null }).audio_analysis = result.audioAnalysis
-      successMessage.value = 'Audio analysis complete!'
-      setTimeout(() => (successMessage.value = null), 3000)
-    }
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Audio analysis failed'
-  } finally {
-    analyzingAudio.value = false
-  }
-}
-
 async function handleAnalyzeVisual() {
   if (!video.value) return
 
@@ -467,6 +441,14 @@ watch(
 
 watch(
   semanticTags,
+  () => {
+    if (!loading.value && video.value) scheduleAutoSave()
+  },
+  { deep: true }
+)
+
+watch(
+  productContext,
   () => {
     if (!loading.value && video.value) scheduleAutoSave()
   },
@@ -724,14 +706,11 @@ const videoTitle = computed(() => video.value?.title || video.value?.creator_han
             />
           </div>
 
-          <!-- Audio Analysis Section -->
+          <!-- Product Context Section -->
           <div class="p-3 border-t border-muted">
-            <EditorAudioMetadata
-              :audio-analysis="(video as unknown as { audio_analysis?: VideoAudioAnalysis | null })?.audio_analysis || null"
-              :analyzing="analyzingAudio"
-              @analyze="handleAnalyzeAudio"
-            />
+            <EditorProductContext v-model="productContext" />
           </div>
+
         </div>
       </aside>
 

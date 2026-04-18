@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import type { SkeletalLogicAnalysis, VideoVisualAnalysis, VideoAudioAnalysis, LogicFlow } from '~/types'
+import type { SkeletalLogicAnalysis, VideoVisualAnalysis, LogicFlow } from '~/types'
 
 defineProps<{
   logicFlow: LogicFlow | null
   skeletalLogic: SkeletalLogicAnalysis | null
   visualAnalysis: VideoVisualAnalysis | null
-  audioAnalysis: VideoAudioAnalysis | null
 }>()
 </script>
 
@@ -44,15 +43,6 @@ defineProps<{
           {{ visualAnalysis.overview.aspect_ratio }}
         </UBadge>
       </template>
-      <UBadge
-        v-if="audioAnalysis?.metadata?.overall"
-        size="xs"
-        color="neutral"
-        variant="outline"
-      >
-        <UIcon name="i-ph-speaker-high" class="w-3 h-3 mr-1" />
-        {{ audioAnalysis.metadata.overall.dominant_audio }}
-      </UBadge>
     </div>
   </div>
 </template>

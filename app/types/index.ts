@@ -153,6 +153,54 @@ export const SEMANTIC_TAG_CATEGORIES = {
     'Advanced/Expert',
     'Professional',
     'Casual/General'
+  ],
+
+  // Product / Service Type - What is being advertised?
+  product_type: [
+    'SaaS',
+    'Mobile App',
+    'Web App',
+    'DTC Physical Product',
+    'Consumer Electronics',
+    'Beauty & Skincare',
+    'Fitness & Health',
+    'Food & Beverage',
+    'Fashion & Apparel',
+    'Home & Kitchen',
+    'Pet Products',
+    'Subscription Box',
+    'Course/Info Product',
+    'Coaching/Consulting',
+    'Agency Service',
+    'Local Service',
+    'B2B Service',
+    'Fintech/Finance',
+    'EdTech',
+    'Creator Tool',
+    'AI Tool',
+    'Marketplace',
+    'Media/Content',
+    'Event/Experience',
+    'Non-Product (Personal Brand)'
+  ],
+
+  // Production Style - How is it produced / shot?
+  production_style: [
+    'Lo-fi/Selfie',
+    'UGC/Creator-shot',
+    'Talking Head',
+    'Screen Recording',
+    'Tutorial Capture',
+    'Vlog Style',
+    'Prosumer',
+    'Studio/Polished',
+    'Cinematic',
+    'Commercial/Ad',
+    'Animation/Motion Graphics',
+    'AI-generated',
+    'Stock Footage Mix',
+    'Podcast Clip',
+    'Livestream Clip'
   ]
 } as const
 
@@ -160,7 +208,9 @@ export const SEMANTIC_TAG_CATEGORIES = {
 export const SEMANTIC_TAGS = [
   ...SEMANTIC_TAG_CATEGORIES.domain,
   ...SEMANTIC_TAG_CATEGORIES.format,
-  ...SEMANTIC_TAG_CATEGORIES.audience
+  ...SEMANTIC_TAG_CATEGORIES.audience,
+  ...SEMANTIC_TAG_CATEGORIES.product_type,
+  ...SEMANTIC_TAG_CATEGORIES.production_style
 ] as const
 
 export type SemanticTag = (typeof SEMANTIC_TAGS)[number]
@@ -180,69 +230,6 @@ export interface SkeletalLogicAnalysis {
   overview: string
   segments: SkeletalLogicSegmentAnalysis[]
   keyTakeaways: string[]
-}
-
-// Sound effect types for audio analysis
-export const SOUND_EFFECT_TYPES = [
-  'whoosh',
-  'ding',
-  'bass_drop',
-  'notification',
-  'pop',
-  'click',
-  'swoosh',
-  'impact',
-  'transition',
-  'riser',
-  'ambient',
-  'other'
-] as const
-export type SoundEffectType = (typeof SOUND_EFFECT_TYPES)[number]
-
-// Audio metadata interfaces
-export interface MusicTrack {
-  title: string | null
-  artist: string | null
-  genre: string | null
-  bpm: number | null
-  start_time: number
-  end_time: number
-  confidence: number
-  description: string
-}
-
-export interface SoundEffect {
-  type: SoundEffectType
-  label: string
-  start_time: number
-  end_time: number
-  confidence: number
-}
-
-export interface AudioOverall {
-  has_speech: boolean
-  has_music: boolean
-  has_sfx: boolean
-  dominant_audio: 'speech' | 'music' | 'mixed' | 'silent'
-}
-
-export interface AudioMetadata {
-  music: {
-    detected: boolean
-    tracks: MusicTrack[]
-  }
-  sound_effects: SoundEffect[]
-  overall: AudioOverall
-}
-
-// Audio analysis status for videos
-export type AudioAnalysisStatus = 'pending' | 'processing' | 'completed' | 'failed'
-
-export interface VideoAudioAnalysis {
-  status: AudioAnalysisStatus
-  analyzed_at: string | null
-  error: string | null
-  metadata: AudioMetadata | null
 }
 
 // ==========================================
@@ -324,5 +311,47 @@ export interface VideoVisualAnalysis {
   error: string | null
   overview: VideoVisualOverview | null
   segments: SegmentVisualAnalysis[] | null
+}
+
+// ==========================================
+// Product Context (videos.product_context)
+// ==========================================
+
+export const PRODUCT_CATEGORIES = [
+  'SaaS - Analytics',
+  'SaaS - CRM',
+  'SaaS - Productivity',
+  'SaaS - Marketing',
+  'SaaS - Developer Tools',
+  'SaaS - Finance',
+  'SaaS - HR',
+  'SaaS - Other',
+  'Consumer App - Health & Fitness',
+  'Consumer App - Finance',
+  'Consumer App - Productivity',
+  'Consumer App - Social',
+  'Consumer App - Other',
+  'E-commerce / Physical Product',
+  'Marketplace / Platform',
+  'Online Course / Info Product',
+  'Agency / Service',
+  'Creator / Personal Brand',
+  'Non-Product (Entertainment/Education)'
+] as const
+export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number]
+
+export const PRICING_MODELS = ['free', 'freemium', 'subscription', 'one-time', 'unknown'] as const
+export type PricingModel = (typeof PRICING_MODELS)[number]
+
+export interface ProductContext {
+  product_name: string | null
+  product_category: ProductCategory | null
+  one_liner: string | null
+  target_user: string | null
+  problem_solved: string | null
+  key_features: string[]
+  pricing_model: PricingModel
+  competitors_mentioned: string[]
+  has_specific_product: boolean
 }
 

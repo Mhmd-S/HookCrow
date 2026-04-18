@@ -1,19 +1,17 @@
 const log = createLogger('browse')
 
-// Anonymous visitors get a capped teaser of the free catalogue — enough to
-// showcase the library without giving the whole thing away.
-const ANON_TEASER_LIMIT = 6
-
 async function fallbackBrowse(
   supabase: ReturnType<typeof useServerSupabase>,
   opts: {
     searchTerm: string
+    keywords: string[]
     tags: string[]
     logicFlowId: string | null
     limit: number
     offset: number
     page: number
-    anon: boolean
+    freeTier?: boolean
+    effectiveLimit?: number
   }
 ) {
   let q = supabase
@@ -24,17 +22,30 @@ async function fallbackBrowse(
     .order('updated_at', { ascending: false })
     .range(opts.offset, opts.offset + opts.limit - 1)
 
-  if (opts.anon) {
-    q = q.eq('is_premium', false)
-  }
   if (opts.logicFlowId) {
     q = q.eq('logic_flow_id', opts.logicFlowId)
   }
   if (opts.tags.length > 0) {
     q = q.overlaps('semantic_tags', opts.tags)
   }
-  if (opts.searchTerm) {
-    q = q.or(`title.ilike.%${opts.searchTerm}%,creator_handle.ilike.%${opts.searchTerm}%`)
+  if (opts.freeTier) {
+    q = q.eq('is_premium', false)
+  }
+  // Broaden recall: OR across title, description, creator_handle for the raw
+  // search term plus every AI-extracted keyword. Commas and parens break
+  // PostgREST's `.or()` syntax, so we strip them before interpolation.
+  const orTerms = [opts.searchTerm, ...opts.keywords]
+    .map(t => t.trim())
+    .filter(t => t.length > 0)
+    .map(t => t.replace(/[,()]/g, ' ').trim())
+    .filter(t => t.length > 0)
+  if (orTerms.length > 0) {
+    const clauses = orTerms.flatMap(t => [
+      `title.ilike.%${t}%`,
+      `description.ilike.%${t}%`,
+      `creator_handle.ilike.%${t}%`
+    ])
+    q = q.or(clauses.join(','))
   }
 
   const { data, error: fbError } = await q
@@ -44,21 +55,29 @@ async function fallbackBrowse(
     throw createError({ statusCode: 500, message: fbError.message })
   }
 
-  return { data: data || [], page: opts.page, limit: opts.limit }
+  const rows = data || []
+  const capped = opts.effectiveLimit != null ? rows.slice(0, opts.effectiveLimit) : rows
+  return { data: capped, page: opts.page, limit: opts.effectiveLimit ?? opts.limit }
 }
 
 export default defineEventHandler(async (event) => {
   const user = await getServerUser(event)
   const anon = !user
+  const isPro = user?.subscriptionStatus === 'active'
+  const isAdmin = user?.role === 'admin'
+  const freeTier = !isPro && !isAdmin
   const query = getQuery(event)
   const supabase = useServerSupabase()
 
   const page = Math.max(1, parseInt(String(query.page)) || 1)
   const requestedLimit = Math.min(Math.max(1, parseInt(String(query.limit)) || 24), 50)
-  // Anonymous callers are clamped to the teaser limit regardless of what they ask for.
-  const limit = anon ? Math.min(requestedLimit, ANON_TEASER_LIMIT) : requestedLimit
-  const effectivePage = anon ? 1 : page
-  const offset = (effectivePage - 1) * limit
+
+  // Free tier: cap to 10 non-premium results, no pagination beyond that.
+  // We over-fetch from the RPC to compensate for post-filtering of premium rows.
+  const effectiveLimit = freeTier ? Math.min(requestedLimit, 10) : requestedLimit
+  const fetchLimit = freeTier ? Math.min(effectiveLimit * 3, 30) : effectiveLimit
+  const effectivePage = freeTier ? 1 : page
+  const offset = (effectivePage - 1) * effectiveLimit
 
   const searchTerm = query.search ? sanitizeString(String(query.search)).trim() : ''
   const keywords = query.keywords ? String(query.keywords).split(',').filter(Boolean) : []
@@ -78,16 +97,35 @@ export default defineEventHandler(async (event) => {
     log.info('Full-text search', { searchQuery, tags, logicFlowId, anon })
   }
 
-  // RPC returns published+complete rows regardless of premium; we post-filter
-  // for anon callers below so we keep the same RPC surface for both cases.
-  // `result_limit * 2` gives headroom when the first N include premium rows
-  // that we then drop for anon viewers.
-  const rpcLimit = anon ? limit * 3 : limit
+  // Embed the raw search term (not the keyword-expanded query) for semantic
+  // matching. Cached in-process so repeat searches don't re-spend Gemini calls.
+  // On any failure, degrade gracefully to ts_rank-only.
+  let queryEmbedding: number[] | null = null
+  if (searchTerm && searchTerm.length >= 3) {
+    queryEmbedding = getCachedEmbedding(searchTerm)
+    if (!queryEmbedding) {
+      try {
+        const ai = useServerGemini()
+        const op = log.timedOp('embed query', { query: searchTerm })
+        queryEmbedding = await embedText(ai, searchTerm)
+        setCachedEmbedding(searchTerm, queryEmbedding)
+        op.done({ dim: queryEmbedding.length })
+      } catch (err) {
+        log.warn('Query embedding failed — falling back to ts_rank only', {
+          query: searchTerm,
+          error: err instanceof Error ? err.message : String(err)
+        })
+        queryEmbedding = null
+      }
+    }
+  }
+
   const { data, error } = await (supabase.rpc as any)('search_videos', {
     search_query: searchQuery,
+    query_embedding: queryEmbedding,
     tag_filter: tags.length > 0 ? tags : null,
     logic_flow_filter: logicFlowId,
-    result_limit: rpcLimit,
+    result_limit: fetchLimit,
     result_offset: offset
   }) as { data: any[] | null; error: any }
 
@@ -96,15 +134,18 @@ export default defineEventHandler(async (event) => {
 
     if (error.code === '42883' || error.message?.includes('function') || error.code === 'PGRST202') {
       log.info('Falling back to direct query (search_videos RPC not found)')
-      return await fallbackBrowse(supabase, { searchTerm, tags, logicFlowId, limit, offset, page: effectivePage, anon })
+      return await fallbackBrowse(supabase, { searchTerm, keywords, tags, logicFlowId, limit: fetchLimit, offset, page: effectivePage, freeTier, effectiveLimit })
     }
 
     throw createError({ statusCode: 500, message: error.message })
   }
 
   let rows = data || []
-  if (anon) {
-    rows = rows.filter((r: any) => !r.is_premium).slice(0, limit)
+
+  // Free tier: strip premium rows, then cap to effectiveLimit. Premium rows
+  // aren't shown at all — no blurred/censored teaser.
+  if (freeTier) {
+    rows = rows.filter((r: any) => !r.is_premium).slice(0, effectiveLimit)
   }
 
   const videos = rows.map((row: any) => ({
@@ -129,8 +170,7 @@ export default defineEventHandler(async (event) => {
   return {
     data: videos,
     page: effectivePage,
-    limit,
-    anon,
-    teaser_limit: anon ? ANON_TEASER_LIMIT : null
+    limit: effectiveLimit,
+    anon
   }
 })

@@ -162,7 +162,7 @@ function copyBlueprint() {
           class="px-3 pb-3 pt-1 space-y-2 text-[12px] text-neutral-600"
           :class="!segment.script_blueprint ? 'border-t border-neutral-100' : ''"
         >
-          <div v-if="visualSegment.text_overlays?.items?.length">
+          <!-- <div v-if="visualSegment.text_overlays?.items?.length">
             <span class="text-[10px] uppercase tracking-wide text-neutral-700 font-bold">Text overlays</span>
             <ul class="mt-1 space-y-0.5">
               <li v-for="(t, i) in visualSegment.text_overlays.items" :key="i">
@@ -172,7 +172,7 @@ function copyBlueprint() {
                 </span>
               </li>
             </ul>
-          </div>
+          </div> -->
 
           <div v-if="visualSegment.transitions">
             <span class="text-[10px] uppercase tracking-wide text-neutral-700 font-bold">Transition</span>

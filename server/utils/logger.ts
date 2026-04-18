@@ -26,6 +26,21 @@ function timestamp(): string {
   return new Date().toISOString()
 }
 
+function describeError(error: unknown): { errMsg: string; errCtx: LogContext } {
+  if (!error) return { errMsg: '', errCtx: {} }
+  if (error instanceof Error) return { errMsg: error.message, errCtx: {} }
+  if (typeof error === 'object') {
+    const e = error as Record<string, unknown>
+    const msg = typeof e.message === 'string' ? e.message : JSON.stringify(e)
+    const ctx: LogContext = {}
+    if (e.code !== undefined) ctx.code = e.code
+    if (e.details !== undefined) ctx.details = e.details
+    if (e.hint !== undefined) ctx.hint = e.hint
+    return { errMsg: msg, errCtx: ctx }
+  }
+  return { errMsg: String(error), errCtx: {} }
+}
+
 export function createLogger(scope: string) {
   const prefix = `[${scope}]`
 
@@ -39,9 +54,9 @@ export function createLogger(scope: string) {
     },
 
     error(message: string, error?: unknown, ctx: LogContext = {}) {
-      const errMsg = error instanceof Error ? error.message : String(error || '')
+      const { errMsg, errCtx } = describeError(error)
       const extra = errMsg ? ` error="${errMsg}"` : ''
-      console.error(`${timestamp()} ${prefix} ${message}${extra}${formatContext(ctx)}`)
+      console.error(`${timestamp()} ${prefix} ${message}${extra}${formatContext({ ...errCtx, ...ctx })}`)
       if (error instanceof Error && error.stack) {
         console.error(error.stack)
       }
@@ -68,8 +83,8 @@ export function createLogger(scope: string) {
         },
         fail(error: unknown, resultCtx: LogContext = {}) {
           const duration = Date.now() - start
-          const errMsg = error instanceof Error ? error.message : String(error)
-          console.error(`${timestamp()} ${prefix} ${operation} failed duration=${formatDuration(duration)} error="${errMsg}"${formatContext({ ...ctx, ...resultCtx })}`)
+          const { errMsg, errCtx } = describeError(error)
+          console.error(`${timestamp()} ${prefix} ${operation} failed duration=${formatDuration(duration)} error="${errMsg}"${formatContext({ ...errCtx, ...ctx, ...resultCtx })}`)
         }
       }
     }

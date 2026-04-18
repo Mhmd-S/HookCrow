@@ -1,3 +1,5 @@
+import { SEMANTIC_TAG_CATEGORIES } from '~/types'
+
 interface RequestBody {
   transcript: string
 }
@@ -6,67 +8,13 @@ interface SuggestTagsResponse {
   domain: string[]
   format: string[]
   audience: string[]
+  product_type: string[]
+  production_style: string[]
   confidence: number
 }
 
-// Available tags - must match the SEMANTIC_TAG_CATEGORIES in types/index.ts
-const AVAILABLE_TAGS = {
-  domain: [
-    'Education',
-    'Business',
-    'Technology',
-    'Food & Cooking',
-    'Health & Fitness',
-    'Finance',
-    'Entertainment',
-    'Lifestyle',
-    'Beauty & Fashion',
-    'Travel',
-    'Sports',
-    'Gaming',
-    'DIY & Crafts',
-    'Parenting',
-    'Relationships',
-    'Productivity',
-    'Marketing',
-    'Real Estate',
-    'Music',
-    'Art & Design',
-    'Science',
-    'News & Current Events',
-    'Career & Work',
-    'Personal Development',
-    'Home & Garden',
-    'Pets & Animals',
-    'Automotive',
-    'Photography & Video'
-  ],
-  format: [
-    'Tutorial',
-    'Review',
-    'Story/Narrative',
-    'Tips & Tricks',
-    'Comparison',
-    'Transformation',
-    'Day-in-the-life',
-    'Behind-the-scenes',
-    'Q&A',
-    'Challenge',
-    'Reaction',
-    'Unboxing',
-    'Explainer',
-    'Motivation',
-    'Comedy/Humor',
-    'Opinion/Commentary'
-  ],
-  audience: [
-    'Beginner-friendly',
-    'Intermediate',
-    'Advanced/Expert',
-    'Professional',
-    'Casual/General'
-  ]
-}
+const CATEGORIES = ['domain', 'format', 'audience', 'product_type', 'production_style'] as const
+type Category = typeof CATEGORIES[number]
 
 const log = createLogger('suggest-semantic-tags')
 
@@ -85,24 +33,30 @@ export default defineEventHandler(async (event): Promise<SuggestTagsResponse> =>
 
   log.info('Suggesting semantic tags', { transcriptLength: body.transcript.length })
 
-  const systemPrompt = `You are a content categorization specialist. Your job is to analyze video transcripts and suggest appropriate tags from a predefined list.
+  const systemPrompt = `You are a content categorization specialist for short-form marketing videos. Your job is to analyze transcripts and suggest tags from a predefined vocabulary.
 
-You must ONLY select tags from the provided lists. Do not suggest any tags that are not in the lists.
+You must ONLY select tags from the provided lists. Do not invent new tags.
 
 Available tags by category:
 
-DOMAIN (what is the video about - select 1-3 most relevant):
-${AVAILABLE_TAGS.domain.join(', ')}
+DOMAIN (what is the video about — select 1–3 most relevant):
+${SEMANTIC_TAG_CATEGORIES.domain.join(', ')}
 
-FORMAT (how is the content presented - select 1-2):
-${AVAILABLE_TAGS.format.join(', ')}
+FORMAT (how is the content presented — select 1–2):
+${SEMANTIC_TAG_CATEGORIES.format.join(', ')}
 
-AUDIENCE (who is this for - select 1):
-${AVAILABLE_TAGS.audience.join(', ')}
+AUDIENCE (who is this for — select exactly 1):
+${SEMANTIC_TAG_CATEGORIES.audience.join(', ')}
 
-Be precise and only select tags that clearly apply to the content. It's better to select fewer highly relevant tags than many loosely related ones.
+PRODUCT_TYPE (what product/service is being advertised — select 1–2; use "Non-Product (Personal Brand)" if it's pure brand content):
+${SEMANTIC_TAG_CATEGORIES.product_type.join(', ')}
 
-Return your analysis as valid JSON.`
+PRODUCTION_STYLE (the visual/production aesthetic — select 1–2). IMPORTANT: you are only seeing the transcript, not the video. Only select a production_style tag if the transcript gives clear signal (e.g. "welcome to my studio", "POV", "here's my screen"). If you cannot tell, return an empty array for production_style rather than guessing.
+${SEMANTIC_TAG_CATEGORIES.production_style.join(', ')}
+
+Be precise. It's better to select fewer highly-relevant tags than many loosely-related ones.
+
+Return valid JSON only.`
 
   const userPrompt = `Analyze this video transcript and suggest the most appropriate tags:
 
@@ -113,7 +67,9 @@ Return a JSON object with this exact structure:
   "domain": ["Tag1", "Tag2"],
   "format": ["Tag1"],
   "audience": ["Tag1"],
-  "confidence": 0.0 to 1.0 confidence score for your tag suggestions
+  "product_type": ["Tag1"],
+  "production_style": [],
+  "confidence": 0.0 to 1.0
 }`
 
   const geminiOp = log.timedOp('Gemini tag suggestion', { model: 'gemini-2.5-flash' })
@@ -129,54 +85,48 @@ Return a JSON object with this exact structure:
     })
 
     const content = response.text
-    if (!content) {
-      throw new Error('No response from AI')
-    }
+    if (!content) throw new Error('No response from AI')
 
     log.info('Gemini response received', { responseLength: content.length })
 
-    const suggestions = JSON.parse(content) as SuggestTagsResponse
+    const suggestions = JSON.parse(content) as Partial<Record<Category, unknown>> & { confidence?: number }
 
-    // Validate that suggested tags are in our allowed lists
-    const rawDomain = suggestions.domain || []
-    const rawFormat = suggestions.format || []
-    const rawAudience = suggestions.audience || []
-
-    const validatedDomain = rawDomain.filter(tag =>
-      AVAILABLE_TAGS.domain.includes(tag)
-    )
-    const validatedFormat = rawFormat.filter(tag =>
-      AVAILABLE_TAGS.format.includes(tag)
-    )
-    const validatedAudience = rawAudience.filter(tag =>
-      AVAILABLE_TAGS.audience.includes(tag)
-    )
-
-    const invalidDomain = rawDomain.filter(tag => !AVAILABLE_TAGS.domain.includes(tag))
-    const invalidFormat = rawFormat.filter(tag => !AVAILABLE_TAGS.format.includes(tag))
-    const invalidAudience = rawAudience.filter(tag => !AVAILABLE_TAGS.audience.includes(tag))
-
-    if (invalidDomain.length || invalidFormat.length || invalidAudience.length) {
-      log.warn('Filtered out invalid tags from AI response', {
-        invalidDomain: invalidDomain.length > 0 ? invalidDomain : undefined,
-        invalidFormat: invalidFormat.length > 0 ? invalidFormat : undefined,
-        invalidAudience: invalidAudience.length > 0 ? invalidAudience : undefined
-      })
+    const validated: Record<Category, string[]> = {
+      domain: [],
+      format: [],
+      audience: [],
+      product_type: [],
+      production_style: []
     }
+    const invalidCounts: Partial<Record<Category, number>> = {}
+
+    for (const category of CATEGORIES) {
+      const allowed = SEMANTIC_TAG_CATEGORIES[category] as readonly string[]
+      const raw = Array.isArray(suggestions[category]) ? (suggestions[category] as unknown[]) : []
+      let invalid = 0
+      for (const item of raw) {
+        if (typeof item === 'string' && allowed.includes(item)) {
+          if (!validated[category].includes(item)) validated[category].push(item)
+        } else {
+          invalid++
+        }
+      }
+      if (invalid > 0) invalidCounts[category] = invalid
+    }
+
+    if (Object.keys(invalidCounts).length > 0) {
+      log.warn('Filtered out invalid tags from AI response', invalidCounts)
+    }
+
+    const confidence = Math.max(0, Math.min(1, suggestions.confidence || 0.5))
 
     geminiOp.done({
-      domain: validatedDomain,
-      format: validatedFormat,
-      audience: validatedAudience,
-      confidence: suggestions.confidence
+      ...validated,
+      confidence,
+      invalidCounts: Object.keys(invalidCounts).length ? invalidCounts : undefined
     })
 
-    return {
-      domain: validatedDomain,
-      format: validatedFormat,
-      audience: validatedAudience,
-      confidence: Math.max(0, Math.min(1, suggestions.confidence || 0.5))
-    }
+    return { ...validated, confidence }
   } catch (err) {
     geminiOp.fail(err)
     throw createError({

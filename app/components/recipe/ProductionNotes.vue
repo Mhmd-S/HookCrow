@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import type { VideoVisualAnalysis, VideoAudioAnalysis, SkeletalLogicAnalysis } from '~/types'
+import type { VideoVisualAnalysis, SkeletalLogicAnalysis } from '~/types'
 
 defineProps<{
   visualAnalysis: VideoVisualAnalysis | null
-  audioAnalysis: VideoAudioAnalysis | null
   skeletalLogic: SkeletalLogicAnalysis | null
 }>()
 </script>
@@ -35,22 +34,6 @@ defineProps<{
           <span class="text-muted shrink-0 w-32">Techniques:</span>
           <div class="flex flex-wrap gap-1">
             <UBadge v-for="t in visualAnalysis.overview.notable_techniques" :key="t" size="xs" color="primary" variant="subtle">{{ t }}</UBadge>
-          </div>
-        </div>
-      </template>
-
-      <!-- Audio Summary -->
-      <template v-if="audioAnalysis?.metadata?.overall">
-        <div class="flex items-start gap-2">
-          <span class="text-muted shrink-0 w-32">Audio type:</span>
-          <span class="text-default">{{ audioAnalysis.metadata.overall.dominant_audio }}</span>
-        </div>
-        <div class="flex items-start gap-2">
-          <span class="text-muted shrink-0 w-32">Audio elements:</span>
-          <div class="flex gap-1">
-            <UBadge v-if="audioAnalysis.metadata.overall.has_speech" size="xs" color="neutral" variant="subtle">Speech</UBadge>
-            <UBadge v-if="audioAnalysis.metadata.overall.has_music" size="xs" color="neutral" variant="subtle">Music</UBadge>
-            <UBadge v-if="audioAnalysis.metadata.overall.has_sfx" size="xs" color="neutral" variant="subtle">SFX</UBadge>
           </div>
         </div>
       </template>

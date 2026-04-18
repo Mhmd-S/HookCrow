@@ -1,5 +1,5 @@
-import type { VideoUpdate } from '~/types'
-import { VIDEO_STATUSES } from '~/types'
+import type { VideoUpdate, ProductContext, ProductCategory, PricingModel } from '~/types'
+import { VIDEO_STATUSES, PRODUCT_CATEGORIES, PRICING_MODELS } from '~/types'
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
@@ -96,28 +96,6 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  if (body.audio_analysis !== undefined) {
-    if (body.audio_analysis === null || typeof body.audio_analysis === 'object') {
-      try {
-        const jsonSize = JSON.stringify(body.audio_analysis ?? null).length
-        if (jsonSize > 250000) {
-          throw new Error('audio_analysis is too large')
-        }
-      } catch (err) {
-        throw createError({
-          statusCode: 400,
-          message: err instanceof Error ? err.message : 'Invalid audio_analysis JSON'
-        })
-      }
-      sanitizedData.audio_analysis = body.audio_analysis as unknown as VideoUpdate['audio_analysis']
-    } else {
-      throw createError({
-        statusCode: 400,
-        message: 'audio_analysis must be a JSON object or null'
-      })
-    }
-  }
-
   if (body.status !== undefined) {
     sanitizedData.status = validateEnum(body.status, 'status', VIDEO_STATUSES)
   }
@@ -156,6 +134,66 @@ export default defineEventHandler(async (event) => {
       throw createError({
         statusCode: 400,
         message: 'visual_analysis must be a JSON object or null'
+      })
+    }
+  }
+
+  const rawProductContext = (body as { product_context?: unknown }).product_context
+  if (rawProductContext !== undefined) {
+    if (rawProductContext === null) {
+      ;(sanitizedData as Record<string, unknown>).product_context = null
+    } else if (typeof rawProductContext === 'object') {
+      const pc = rawProductContext as Partial<ProductContext> & Record<string, unknown>
+
+      const clip = (v: unknown, max: number): string | null => {
+        if (typeof v !== 'string') return null
+        const t = sanitizeString(v).trim()
+        if (!t) return null
+        return t.length > max ? t.slice(0, max) : t
+      }
+      const arr = (v: unknown, items: number, maxLen: number): string[] => {
+        if (!Array.isArray(v)) return []
+        const out: string[] = []
+        const seen = new Set<string>()
+        for (const x of v) {
+          if (typeof x !== 'string') continue
+          const s = sanitizeString(x).trim()
+          if (!s) continue
+          const c = s.length > maxLen ? s.slice(0, maxLen) : s
+          const k = c.toLowerCase()
+          if (seen.has(k)) continue
+          seen.add(k)
+          out.push(c)
+          if (out.length >= items) break
+        }
+        return out
+      }
+
+      const categoryRaw = typeof pc.product_category === 'string' ? pc.product_category : null
+      const category = categoryRaw && (PRODUCT_CATEGORIES as readonly string[]).includes(categoryRaw)
+        ? (categoryRaw as ProductCategory)
+        : null
+      const pricingRaw = typeof pc.pricing_model === 'string' ? pc.pricing_model : null
+      const pricing: PricingModel = pricingRaw && (PRICING_MODELS as readonly string[]).includes(pricingRaw)
+        ? (pricingRaw as PricingModel)
+        : 'unknown'
+
+      const normalized: ProductContext = {
+        product_name: clip(pc.product_name, 120),
+        product_category: category,
+        one_liner: clip(pc.one_liner, 120),
+        target_user: clip(pc.target_user, 160),
+        problem_solved: clip(pc.problem_solved, 200),
+        key_features: arr(pc.key_features, 6, 120),
+        pricing_model: pricing,
+        competitors_mentioned: arr(pc.competitors_mentioned, 10, 80),
+        has_specific_product: pc.has_specific_product === true
+      }
+      ;(sanitizedData as Record<string, unknown>).product_context = normalized
+    } else {
+      throw createError({
+        statusCode: 400,
+        message: 'product_context must be a JSON object or null'
       })
     }
   }

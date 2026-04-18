@@ -4,15 +4,20 @@ const router = useRouter()
 const route = useRoute()
 const { toggle } = useSidebarState()
 
-const searchQuery = ref((route.query.search as string) || '')
+const searchQuery = ref((route.query.q as string) || '')
 const aiSearchLoading = useState('ai-search-loading', () => false)
+
+// The landing page has its own hero-sized search input; hiding the header
+// one on "/" avoids a second, competing affordance. It reappears after the
+// user lands on the results page.
+const showHeaderSearch = computed(() => route.path !== '/')
 
 function handleSearch() {
   const trimmed = searchQuery.value.trim()
-  if (route.path === '/') {
-    router.replace({ query: { ...route.query, search: trimmed || undefined } })
+  if (route.path === '/search') {
+    router.replace({ query: { ...route.query, q: trimmed || undefined } })
   } else {
-    router.push({ path: '/', query: trimmed ? { search: trimmed } : undefined })
+    router.push({ path: '/search', query: trimmed ? { q: trimmed } : undefined })
   }
 }
 
@@ -22,7 +27,7 @@ async function handleLogout() {
 }
 
 // Sync search input when route query changes
-watch(() => route.query.search, (val) => {
+watch(() => route.query.q, (val) => {
   searchQuery.value = (val as string) || ''
 })
 
@@ -97,9 +102,9 @@ const avatarInitial = computed(() =>
       </NuxtLink>
     </div>
 
-    <!-- Center: Pill search -->
+    <!-- Center: Pill search (hidden on landing — hero owns that affordance there) -->
     <div class="flex-1 flex justify-center min-w-0">
-      <form class="w-full max-w-xl" @submit.prevent="handleSearch">
+      <form v-if="showHeaderSearch" class="w-full max-w-xl" @submit.prevent="handleSearch">
         <label class="relative flex items-center h-10 bg-white rounded-full ring-1 ring-neutral-200 focus-within:ring-2 focus-within:ring-neutral-300 transition-all px-4 gap-2">
           <UIcon
             :name="aiSearchLoading ? 'i-ph-circle-notch' : 'i-ph-magnifying-glass'"
@@ -109,7 +114,7 @@ const avatarInitial = computed(() =>
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Search on Web..."
+            placeholder="What are you marketing? (e.g. meal planning app)"
             class="flex-1 bg-transparent outline-none text-sm placeholder:text-neutral-400 min-w-0"
             @keydown.enter="handleSearch"
           >
