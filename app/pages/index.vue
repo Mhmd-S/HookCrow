@@ -1,20 +1,78 @@
 <script setup lang="ts">
-const { videos, loadBrowse } = useBrowse()
-const router = useRouter()
+import type { Video } from '~/types'
 
-onMounted(() => {
+const { videos, loadBrowse } = useBrowse()
+const { authHeaders } = useAuth()
+
+interface SliderPreset {
+  title: string
+  subtitle: string
+  tag?: string
+  limit: number
+}
+
+const PRESETS: SliderPreset[] = [
+  { title: 'Health & fitness', subtitle: 'Supplement, coaching and wellness angles', tag: 'Health & Fitness', limit: 8 },
+  { title: 'Food & cooking', subtitle: 'Recipes, meal prep and food brand storytelling', tag: 'Food & Cooking', limit: 8 },
+  { title: 'Technology', subtitle: 'How tech products hook, demo and convert', tag: 'Technology', limit: 8 },
+  { title: 'Education', subtitle: 'Tutorials, lessons and knowledge drops', tag: 'Education', limit: 8 },
+  { title: 'Business', subtitle: 'Founder stories, B2B pitches and growth plays', tag: 'Business', limit: 8 },
+  { title: 'Beauty & fashion', subtitle: 'DTC beauty and style product storytelling', tag: 'Beauty & Fashion', limit: 8 }
+]
+
+const sliderVideos = ref<Video[][]>(PRESETS.map(() => []))
+const slidersLoading = ref(true)
+
+onMounted(async () => {
   // Populate the hero's floating thumbnails. No filters — we just want a
   // visually varied sample of the library.
   loadBrowse()
-})
 
-function selectDomain(domain: string | null) {
-  router.push({ path: '/search', query: domain ? { tag: domain } : {} })
-}
+  // Over-fetch per tag (3x the display limit) so we have buffer to drop
+  // videos already claimed by higher-priority sliders without running out.
+  const pools = await Promise.all(PRESETS.map(async (preset) => {
+    const params = new URLSearchParams()
+    if (preset.tag) params.set('tags', preset.tag)
+    params.set('limit', String(preset.limit * 3))
+    try {
+      const res = await $fetch<{ data: Video[] }>(`/api/browse?${params.toString()}`, {
+        headers: authHeaders()
+      })
+      return res.data || []
+    } catch {
+      return [] as Video[]
+    }
+  }))
+
+  // Walk presets in order, claim each video once. Earlier sliders win, so
+  // "Freshly added" gets the newest; tag sliders pick the best remaining.
+  const claimed = new Set<string>()
+  sliderVideos.value = PRESETS.map((preset, i) => {
+    const chosen: Video[] = []
+    for (const v of pools[i] || []) {
+      if (claimed.has(v.id)) continue
+      chosen.push(v)
+      claimed.add(v.id)
+      if (chosen.length >= preset.limit) break
+    }
+    return chosen
+  })
+  slidersLoading.value = false
+})
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto px-6 py-8 space-y-10">
+  <div class="max-w-7xl mx-auto px-4 md:px-6 py-8 space-y-12">
     <LandingHero :videos="videos" />
+
+    <LandingSearchSlider
+      v-for="(preset, i) in PRESETS"
+      :key="preset.title"
+      :title="preset.title"
+      :subtitle="preset.subtitle"
+      :tag="preset.tag"
+      :videos="sliderVideos[i] || []"
+      :loading="slidersLoading"
+    />
   </div>
 </template>

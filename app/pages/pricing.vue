@@ -53,7 +53,8 @@ async function subscribe(plan: SubscriptionPlan) {
           <p class="text-sm text-muted mt-1">Flexible month-to-month access. Cancel anytime.</p>
         </div>
         <div>
-          <span class="text-4xl font-bold">Monthly</span>
+          <span class="text-4xl font-bold">$14.99</span>
+          <span class="text-muted ml-1">/month</span>
           <p class="text-xs text-dimmed mt-1">Billed every month</p>
         </div>
         <ul class="space-y-2 text-sm flex-1">
@@ -91,8 +92,9 @@ async function subscribe(plan: SubscriptionPlan) {
           <p class="text-sm text-muted mt-1">Save vs. monthly. One charge, full year of access.</p>
         </div>
         <div>
-          <span class="text-4xl font-bold">Annual</span>
-          <p class="text-xs text-dimmed mt-1">Billed yearly</p>
+          <span class="text-4xl font-bold">$129.99</span>
+          <span class="text-muted ml-1">/year</span>
+          <p class="text-xs text-dimmed mt-1">Billed yearly · ~$10.83/month</p>
         </div>
         <ul class="space-y-2 text-sm flex-1">
           <li class="flex items-start gap-2">

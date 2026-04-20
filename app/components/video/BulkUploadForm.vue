@@ -209,10 +209,9 @@ onBeforeUnmount(() => {
             accept="video/*"
             multiple
             class="sr-only"
-            :disabled="running"
             @change="handleFileSelect"
           />
-          <span class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100" :class="{ 'opacity-50 cursor-not-allowed': running }">
+          <span class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100">
             <UIcon name="i-ph-plus" class="w-4 h-4" />
             Add Videos
           </span>
@@ -307,7 +306,6 @@ onBeforeUnmount(() => {
             variant="ghost"
             color="neutral"
             icon="i-ph-x"
-            :disabled="running && item.status === 'queued'"
             @click="removeItem(item.id)"
           />
         </div>

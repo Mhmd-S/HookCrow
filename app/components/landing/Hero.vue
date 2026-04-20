@@ -93,21 +93,22 @@ function submit() {
       </div>
 
       <form class="space-y-3" @submit.prevent="submit">
-        <label class="relative flex items-center h-14 md:h-16 bg-default rounded-full ring-1 ring-default shadow-sm focus-within:ring-2 focus-within:ring-primary transition-all pl-5 md:pl-6 pr-2 gap-3">
+        <label class="relative flex items-center h-14 md:h-16 bg-default rounded-full ring-1 ring-default shadow-sm focus-within:ring-2 focus-within:ring-primary transition-all pl-4 md:pl-6 pr-2 gap-2 md:gap-3">
           <UIcon name="i-ph-magnifying-glass" class="w-5 h-5 text-dimmed shrink-0" />
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="e.g. meal planning app, B2B SaaS, skincare line"
+            placeholder="Product, service or niche…"
             class="flex-1 bg-transparent outline-none text-base md:text-lg placeholder:text-dimmed min-w-0"
-            autofocus
           >
           <button
             type="submit"
-            class="shrink-0 inline-flex items-center justify-center h-10 md:h-12 px-5 md:px-6 rounded-full bg-primary text-inverted text-sm md:text-base font-semibold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            aria-label="Find templates"
+            class="shrink-0 inline-flex items-center justify-center h-10 md:h-12 w-10 md:w-auto md:px-6 rounded-full bg-primary text-inverted text-sm md:text-base font-semibold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             :disabled="!searchQuery.trim()"
           >
-            Find templates
+            <UIcon name="i-ph-arrow-right" class="w-5 h-5 md:hidden" />
+            <span class="hidden md:inline">Find templates</span>
           </button>
         </label>
 

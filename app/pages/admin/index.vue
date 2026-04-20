@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { Video, VideoStatus, LogicFlow } from '~/types'
+import type { Video, VideoStatus, LogicFlow, VideoUpdate } from '~/types'
 
 definePageMeta({ middleware: ['admin'] })
 
-const { fetchVideos, deleteVideo, getVideoUrl } = useVideos()
+const { fetchVideos, deleteVideo, updateVideo, getVideoUrl } = useVideos()
 const { logicFlows, fetchLogicFlows } = useLogicFlows()
 const { authHeaders } = useAuth()
 
@@ -71,6 +71,20 @@ async function handleDelete(id: string) {
     error.value = err.message
   } else {
     await loadVideos()
+  }
+}
+
+async function handleToggleStatus(video: Video) {
+  const next: VideoStatus = video.status === 'complete' ? 'draft' : 'complete'
+  const payload: VideoUpdate = { status: next }
+  const { data, error: err } = await updateVideo(video.id, payload)
+  if (err) {
+    error.value = err.message
+    return
+  }
+  if (data) {
+    const idx = videos.value.findIndex(v => v.id === video.id)
+    if (idx !== -1) videos.value[idx] = { ...videos.value[idx], status: data.status } as Video
   }
 }
 
@@ -282,6 +296,14 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
                   <p class="text-xs text-neutral-400">{{ formatDate(video.created_at) }}</p>
                   <div class="flex gap-1">
                     <UButton
+                      size="xs"
+                      variant="ghost"
+                      :color="video.status === 'complete' ? 'success' : 'warning'"
+                      :icon="video.status === 'complete' ? 'i-ph-check-circle' : 'i-ph-circle-dashed'"
+                      :aria-label="`Toggle status (currently ${video.status})`"
+                      @click="handleToggleStatus(video)"
+                    />
+                    <UButton
                       :to="`/admin/recipes/${video.id}`"
                       size="xs"
                       variant="ghost"
@@ -292,6 +314,14 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
                       size="xs"
                       variant="ghost"
                       icon="i-ph-eye"
+                    />
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      color="error"
+                      icon="i-ph-trash"
+                      aria-label="Delete video"
+                      @click="handleDelete(video.id)"
                     />
                   </div>
                 </div>
@@ -375,6 +405,14 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
             >
               View
             </UButton>
+            <UButton
+              size="sm"
+              variant="ghost"
+              :color="video.status === 'complete' ? 'success' : 'warning'"
+              :icon="video.status === 'complete' ? 'i-ph-check-circle' : 'i-ph-circle-dashed'"
+              :aria-label="`Toggle status (currently ${video.status})`"
+              @click="handleToggleStatus(video)"
+            />
             <UButton
               size="sm"
               variant="ghost"

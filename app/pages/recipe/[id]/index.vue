@@ -2,10 +2,11 @@
 import type { LockedRecipe, VideoWithSegments, Segment, SkeletalLogicAnalysis, SkeletalLogicSegmentAnalysis, VideoVisualAnalysis, SegmentVisualAnalysis } from '~/types'
 
 const route = useRoute()
+const router = useRouter()
 const videoId = route.params.id as string
 
-const { getVideoUrl } = useVideos()
-const { authHeaders, isAuthenticated } = useAuth()
+const { getVideoUrl, updateVideo, deleteVideo } = useVideos()
+const { authHeaders, isAuthenticated, isAdmin } = useAuth()
 const { isBookmarked, toggleBookmark, fetchBookmarks, loaded: bookmarksLoaded } = useBookmarks()
 
 type RecipeResponse = VideoWithSegments | LockedRecipe
@@ -50,6 +51,34 @@ async function onToggleBookmark() {
   } finally {
     bookmarkBusy.value = false
   }
+}
+
+const statusBusy = ref(false)
+async function onToggleStatus() {
+  if (!fullRecipe.value || statusBusy.value) return
+  const next = fullRecipe.value.status === 'complete' ? 'draft' : 'complete'
+  statusBusy.value = true
+  const { data, error: err } = await updateVideo(videoId, { status: next })
+  statusBusy.value = false
+  if (err) {
+    error.value = err.message || 'Failed to update status'
+    return
+  }
+  if (data && fullRecipe.value) fullRecipe.value.status = data.status
+}
+
+const deleteBusy = ref(false)
+async function onDelete() {
+  if (!fullRecipe.value || deleteBusy.value) return
+  if (!confirm('Delete this recipe? This cannot be undone.')) return
+  deleteBusy.value = true
+  const { error: err } = await deleteVideo(videoId)
+  if (err) {
+    error.value = err.message || 'Failed to delete'
+    deleteBusy.value = false
+    return
+  }
+  router.push('/admin')
 }
 
 const isLocked = computed(() => recipe.value !== null && 'locked' in recipe.value && recipe.value.locked === true)
@@ -109,6 +138,35 @@ function getVisualSegment(index: number): SegmentVisualAnalysis | null {
           <h1 v-if="fullRecipe.title" class="flex-1 text-2xl font-semibold tracking-tight text-highlighted">
             {{ fullRecipe.title }}
           </h1>
+          <template v-if="isAdmin">
+            <UButton
+              :color="fullRecipe.status === 'complete' ? 'success' : 'warning'"
+              variant="soft"
+              size="md"
+              :loading="statusBusy"
+              :aria-label="`Status: ${fullRecipe.status}. Click to toggle.`"
+              @click="onToggleStatus"
+            >
+              {{ fullRecipe.status === 'complete' ? 'Complete' : 'Draft' }}
+            </UButton>
+            <UButton
+              :to="`/admin/recipes/${fullRecipe.id}`"
+              icon="i-ph-pencil"
+              color="neutral"
+              variant="soft"
+              size="md"
+              aria-label="Edit recipe"
+            />
+            <UButton
+              icon="i-ph-trash"
+              color="error"
+              variant="soft"
+              size="md"
+              :loading="deleteBusy"
+              aria-label="Delete recipe"
+              @click="onDelete"
+            />
+          </template>
           <UButton
             v-if="isAuthenticated"
             :icon="isBookmarked(fullRecipe.id) ? 'i-ph-bookmark-simple-fill' : 'i-ph-bookmark-simple'"

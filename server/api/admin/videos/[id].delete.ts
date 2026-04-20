@@ -19,7 +19,19 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Delete the video record (segments cascade automatically)
+  // Explicitly clean up dependent rows. The schema declares ON DELETE CASCADE,
+  // but some environments were provisioned before that constraint landed.
+  const { error: segmentsErr } = await supabase
+    .from('segments')
+    .delete()
+    .eq('video_id', id)
+
+  if (segmentsErr) {
+    throw createError({ statusCode: 500, message: segmentsErr.message })
+  }
+
+  await supabase.from('bookmarks').delete().eq('video_id', id)
+
   const { error } = await supabase
     .from('videos')
     .delete()

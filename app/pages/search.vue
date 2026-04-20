@@ -1,9 +1,31 @@
 <script setup lang="ts">
+import type { Video } from '~/types'
+
 const { videos, loading, filters, isAnon, searchInterpretation, loadBrowse, setFilters, clearFilters } = useBrowse()
 const { getVideoUrl } = useVideos()
-const { isPro, isAdmin } = useAuth()
+const { isPro, isAdmin, authHeaders } = useAuth()
 const route = useRoute()
 const router = useRouter()
+
+interface SliderPreset {
+  title: string
+  subtitle: string
+  tag: string
+  limit: number
+}
+
+const SLIDER_PRESETS: SliderPreset[] = [
+  { title: 'Health & fitness', subtitle: 'Supplement, coaching and wellness angles', tag: 'Health & Fitness', limit: 8 },
+  { title: 'Food & cooking', subtitle: 'Recipes, meal prep and food brand storytelling', tag: 'Food & Cooking', limit: 8 },
+  { title: 'Technology', subtitle: 'How tech products hook, demo and convert', tag: 'Technology', limit: 8 },
+  { title: 'Education', subtitle: 'Tutorials, lessons and knowledge drops', tag: 'Education', limit: 8 },
+  { title: 'Business', subtitle: 'Founder stories, B2B pitches and growth plays', tag: 'Business', limit: 8 },
+  { title: 'Beauty & fashion', subtitle: 'DTC beauty and style product storytelling', tag: 'Beauty & Fashion', limit: 8 }
+]
+
+const sliderVideos = ref<Video[][]>(SLIDER_PRESETS.map(() => []))
+const slidersLoading = ref(false)
+const slidersLoaded = ref(false)
 
 function isLocked(video: { is_premium?: boolean | null }): boolean {
   return !!video.is_premium && !isPro.value && !isAdmin.value
@@ -15,6 +37,41 @@ function syncFiltersFromRoute() {
   const tags = tagParam ? tagParam.split(',').filter(Boolean) : []
   filters.value.search = q
   filters.value.tags = tags
+}
+
+async function loadSliders() {
+  if (slidersLoaded.value) return
+  slidersLoading.value = true
+  try {
+    const pools = await Promise.all(SLIDER_PRESETS.map(async (preset) => {
+      const params = new URLSearchParams()
+      params.set('tags', preset.tag)
+      params.set('limit', String(preset.limit * 3))
+      try {
+        const res = await $fetch<{ data: Video[] }>(`/api/browse?${params.toString()}`, {
+          headers: authHeaders()
+        })
+        return res.data || []
+      } catch {
+        return [] as Video[]
+      }
+    }))
+
+    const claimed = new Set<string>()
+    sliderVideos.value = SLIDER_PRESETS.map((preset, i) => {
+      const chosen: Video[] = []
+      for (const v of pools[i] || []) {
+        if (claimed.has(v.id)) continue
+        chosen.push(v)
+        claimed.add(v.id)
+        if (chosen.length >= preset.limit) break
+      }
+      return chosen
+    })
+    slidersLoaded.value = true
+  } finally {
+    slidersLoading.value = false
+  }
 }
 
 onMounted(() => {
@@ -35,15 +92,15 @@ watch(() => [route.query.q, route.query.tag], () => {
 
 const activeDomain = computed<string | null>(() => filters.value.tags[0] ?? null)
 
-function selectDomain(domain: string | null) {
-  router.replace({
-    query: { ...route.query, tag: domain || undefined }
-  })
-}
-
 const hasActiveFilters = computed(() => {
   return filters.value.tags.length > 0 || filters.value.search.trim() !== ''
 })
+
+const showSliders = computed(() => !hasActiveFilters.value)
+
+watch(showSliders, (v) => {
+  if (v) loadSliders()
+}, { immediate: true })
 
 const EMPTY_STATE_EXAMPLES = [
   'meal planning app',
@@ -91,10 +148,13 @@ function formatDuration(seconds: number | null): string | null {
           Browsing {{ activeDomain }}
         </h1>
         <h1 v-else class="text-2xl font-semibold tracking-tight text-default">
-          All templates
+          Browse all recipes
         </h1>
-        <p v-if="!loading" class="text-sm text-muted mt-0.5">
-          {{ videos.length }} {{ videos.length === 1 ? 'template' : 'templates' }}
+        <p v-if="!loading && hasActiveFilters" class="text-sm text-muted mt-0.5">
+          {{ videos.length }} {{ videos.length === 1 ? 'recipe' : 'recipes' }}
+        </p>
+        <p v-else-if="!showSliders && !loading" class="text-sm text-muted mt-0.5">
+          {{ videos.length }} {{ videos.length === 1 ? 'recipe' : 'recipes' }}
         </p>
       </div>
 
@@ -109,20 +169,28 @@ function formatDuration(seconds: number | null): string | null {
       </UButton>
     </header>
 
-    <LandingDomainTabs
-      :model-value="activeDomain"
-      @update:model-value="selectDomain"
-    />
-    
+    <!-- Sliders view: no filters active, browse by domain -->
+    <div v-if="showSliders" class="space-y-10">
+      <LandingSearchSlider
+        v-for="(preset, i) in SLIDER_PRESETS"
+        :key="preset.title"
+        :title="preset.title"
+        :subtitle="preset.subtitle"
+        :tag="preset.tag"
+        :videos="sliderVideos[i] || []"
+        :loading="slidersLoading"
+      />
+    </div>
+
     <!-- Loading -->
-    <div v-if="loading" class="flex items-center justify-center py-20">
+    <div v-else-if="loading" class="flex items-center justify-center py-20">
       <UIcon name="i-ph-circle-notch" class="w-8 h-8 animate-spin text-dimmed" />
     </div>
 
     <!-- Empty -->
     <div v-else-if="videos.length === 0" class="text-center py-20">
       <UIcon name="i-ph-video" class="w-16 h-16 mx-auto text-dimmed" />
-      <h3 class="mt-4 text-lg font-medium">No templates found</h3>
+      <h3 class="mt-4 text-lg font-medium">No recipes found</h3>
       <p class="mt-2 text-muted max-w-md mx-auto">
         <template v-if="filters.search.trim()">
           Nothing matched "{{ filters.search }}" yet. Try a broader product or category.
@@ -131,7 +199,7 @@ function formatDuration(seconds: number | null): string | null {
           Try adjusting your filters.
         </template>
         <template v-else>
-          Templates will appear here once published.
+          Recipes will appear here once published.
         </template>
       </p>
 
@@ -225,10 +293,10 @@ function formatDuration(seconds: number | null): string | null {
     >
       <UIcon name="i-ph-bookmark-simple" class="w-8 h-8 text-primary mx-auto" />
       <h3 class="text-lg font-semibold">
-        Save templates for later
+        Save recipes for later
       </h3>
       <p class="text-muted text-sm max-w-md mx-auto">
-        Create a free account to bookmark the templates you want to steal. Pro unlocks premium recipes.
+        Create a free account to bookmark the recipes you want to steal. Pro unlocks premium ones.
       </p>
       <div class="flex flex-wrap gap-2 justify-center pt-2">
         <UButton to="/register" size="lg" icon="i-ph-user-plus">Sign up — it's free</UButton>
