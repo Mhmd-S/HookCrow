@@ -54,7 +54,7 @@ interface SliderPreset {
 const PRESETS: SliderPreset[] = [
   { title: 'Health & fitness', subtitle: 'Supplement, coaching and wellness angles', tag: 'Health & Fitness', limit: 8 },
   { title: 'Food & cooking', subtitle: 'Recipes, meal prep and food brand storytelling', tag: 'Food & Cooking', limit: 8 },
-  { title: 'Technology', subtitle: 'How tech products hook, demo and convert', tag: 'Technology', limit: 8 },
+  { title: 'Finance', subtitle: 'Money, investing and personal finance angles that convert', tag: 'Finance', limit: 8 },
   { title: 'Education', subtitle: 'Tutorials, lessons and knowledge drops', tag: 'Education', limit: 8 },
   { title: 'Business', subtitle: 'Founder stories, B2B pitches and growth plays', tag: 'Business', limit: 8 },
   { title: 'Beauty & fashion', subtitle: 'DTC beauty and style product storytelling', tag: 'Beauty & Fashion', limit: 8 }
