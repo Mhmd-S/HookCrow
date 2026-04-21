@@ -1,3 +1,10 @@
+<script setup lang="ts">
+useSeoMeta({
+  title: 'Checkout cancelled',
+  robots: 'noindex,nofollow'
+})
+</script>
+
 <template>
   <div class="max-w-xl mx-auto px-4 md:px-6 py-16 md:py-24 text-center">
     <div class="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">

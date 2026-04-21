@@ -3,6 +3,11 @@ import type { FormSubmitEvent, AuthFormField } from '@nuxt/ui'
 
 definePageMeta({ layout: 'blank' })
 
+useSeoMeta({
+  title: 'Log in',
+  robots: 'noindex,nofollow'
+})
+
 const { login, isAuthenticated, isAdmin } = useAuth()
 const route = useRoute()
 

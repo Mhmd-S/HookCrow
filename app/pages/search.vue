@@ -7,6 +7,15 @@ const { isPro, isAdmin, authHeaders } = useAuth()
 const route = useRoute()
 const router = useRouter()
 
+useSeoMeta({
+  title: 'Browse marketing videos',
+  description: 'Browse short-form marketing videos and find hooks, bridges, and CTAs from real creators across every category.',
+  ogTitle: 'Browse marketing videos · Hookcrow',
+  ogDescription: 'A creative reference library of short-form marketing videos.'
+})
+
+useCanonical()
+
 interface SliderPreset {
   title: string
   subtitle: string
@@ -221,7 +230,7 @@ function formatDuration(seconds: number | null): string | null {
     </div>
 
     <!-- Masonry (CSS columns) -->
-    <div v-else class="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
+    <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 space-y-4">
       <NuxtLink
         v-for="video in videos"
         :key="video.id"

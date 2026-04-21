@@ -1,4 +1,9 @@
 <script setup lang="ts">
+useSeoMeta({
+  title: 'Subscription activated',
+  robots: 'noindex,nofollow'
+})
+
 const { refreshProfile, isPro } = useAuth()
 
 const checking = ref(true)

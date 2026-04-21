@@ -6,14 +6,25 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   app: {
     head: {
-      titleTemplate: '%s · Skelet',
-      title: 'Skelet — Video anatomy templates for marketers',
+      titleTemplate: '%s · Hookcrow',
+      title: 'Hookcrow — Creative reference for short-form marketing videos',
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/icon.svg' },
-        { rel: 'alternate icon', href: '/favicon.ico' }
+        { rel: 'alternate icon', href: '/favicon.ico' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' }
       ],
       meta: [
-        { name: 'description', content: 'Skelet breaks down short-form marketing videos into reusable templates — hooks, bridges, and CTAs from creators who sell.' }
+        { name: 'description', content: 'Thousands of short-form marketing videos from creators who sell — a reference library of hooks, bridges, and CTAs for your next campaign.' },
+        { name: 'robots', content: 'index,follow' },
+        { name: 'theme-color', content: '#5505a0' },
+        { property: 'og:site_name', content: 'Hookcrow' },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:image', content: '/og-image.png' },
+        { property: 'og:image:type', content: 'image/png' },
+        { property: 'og:image:width', content: '1200' },
+        { property: 'og:image:height', content: '630' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:image', content: '/og-image.png' }
       ]
     }
   },

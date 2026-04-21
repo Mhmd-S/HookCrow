@@ -8,14 +8,14 @@ const { isAuthenticated } = useAuth()
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
         <!-- Brand -->
         <div class="space-y-3">
-          <NuxtLink to="/" class="flex items-center gap-2" aria-label="Skelet — home">
+          <NuxtLink to="/" class="flex items-center gap-2" aria-label="Hookcrow — home">
             <img src="/icon.svg" alt="" width="32" height="32" class="w-8 h-8">
-            <span class="text-[17px] font-bold tracking-tight text-default">skelet</span>
+            <span class="text-[17px] font-bold tracking-tight text-default">hookcrow</span>
           </NuxtLink>
           <p class="text-sm text-muted max-w-xs">
-            Video anatomy templates for marketers — hooks, bridges, and CTAs from creators who sell.
+            The creative reference for short-form marketing videos — hooks, bridges, and CTAs from real creators.
           </p>
-          <p class="text-xs text-dimmed">© 2026 Skelet</p>
+          <p class="text-xs text-dimmed">© 2026 Hookcrow</p>
         </div>
 
         <!-- Product -->
@@ -41,11 +41,6 @@ const { isAuthenticated } = useAuth()
             </li>
           </ul>
         </div>
-      </div>
-
-      <div class="mt-10 pt-6 border-t border-default flex flex-col md:flex-row justify-between gap-2 text-xs text-dimmed">
-        <span>Secure payments by Stripe</span>
-        <span>Built with Nuxt</span>
       </div>
     </div>
   </footer>

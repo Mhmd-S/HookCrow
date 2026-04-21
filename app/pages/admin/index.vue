@@ -231,7 +231,7 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
       <div v-else-if="videos.length === 0" class="text-center py-20">
         <UIcon name="i-ph-video" class="w-16 h-16 mx-auto text-neutral-300 dark:text-neutral-700" />
         <h3 class="mt-4 text-lg font-medium">No videos yet</h3>
-        <p class="mt-2 text-neutral-500">Upload your first video to start anatomizing</p>
+        <p class="mt-2 text-neutral-500">Upload your first video to start building the library</p>
         <div class="mt-6 flex gap-2 justify-center">
           <UButton to="/admin/recipes/new" variant="soft" icon="i-ph-plus">
             Upload Video

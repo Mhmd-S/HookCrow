@@ -19,7 +19,7 @@ watch(() => route.path, () => {
     <!-- Logo -->
     <div class="h-14 flex items-center gap-2 px-4 border-b border-default shrink-0">
       <UIcon name="i-ph-film-strip" class="w-5 h-5 text-primary" />
-      <NuxtLink to="/" class="font-bold text-default text-sm">Video Anatomizer</NuxtLink>
+      <NuxtLink to="/" class="font-bold text-default text-sm">Hookcrow Admin</NuxtLink>
     </div>
 
     <!-- Scrollable nav -->

@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { SubscriptionPlan, SubscriptionStatus } from '~/types'
 
+useSeoMeta({
+  title: 'Account',
+  robots: 'noindex,nofollow'
+})
+
 const { profile, authHeaders, logout, refreshProfile } = useAuth()
 const router = useRouter()
 

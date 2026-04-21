@@ -35,8 +35,8 @@ const { isAdmin } = useAuth()
       <AppHeader />
 
       <main class="flex-1 overflow-y-auto">
-        <div class="flex flex-col min-h-full">
-          <div class="flex-1">
+        <div class="flex flex-col min-h-screen">
+          <div class="flex-1 min-h-screen">
             <slot />
           </div>
           <AppFooter v-if="!isAdmin" />

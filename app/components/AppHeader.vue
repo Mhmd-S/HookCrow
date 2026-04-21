@@ -97,9 +97,9 @@ const avatarInitial = computed(() =>
   <header v-else class="h-16 flex items-center gap-3 md:gap-6 px-4 md:px-6 bg-muted shrink-0">
     <!-- Left: Logo + primary nav -->
     <div class="flex items-center gap-6 shrink-0">
-      <NuxtLink to="/" class="flex items-center gap-2" aria-label="Skelet — home">
+      <NuxtLink to="/" class="flex items-center gap-2" aria-label="Hookcrow — home">
         <img src="/icon.svg" alt="" width="32" height="32" class="w-8 h-8">
-        <span class="hidden sm:inline text-[17px] font-bold tracking-tight text-default">skelet</span>
+        <span class="hidden sm:inline text-[17px] font-bold tracking-tight text-default">hookcrow</span>
       </NuxtLink>
     </div>
 

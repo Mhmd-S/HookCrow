@@ -1,6 +1,46 @@
 <script setup lang="ts">
 import type { Video } from '~/types'
 
+useSeoMeta({
+  title: 'Short-form marketing video reference library',
+  description: 'Browse thousands of short-form marketing videos from creators who sell. A creative reference library of hooks, bridges, and CTAs for your next campaign.',
+  ogTitle: 'Hookcrow — Creative reference for short-form marketing videos',
+  ogDescription: 'Thousands of real creator videos — hooks, bridges, and CTAs you can reference for your next campaign.',
+  twitterTitle: 'Hookcrow — Creative reference for short-form marketing videos',
+  twitterDescription: 'Thousands of real creator videos — hooks, bridges, and CTAs you can reference for your next campaign.'
+})
+
+useCanonical()
+
+const { public: pub } = useRuntimeConfig()
+const siteUrl = (pub.siteUrl || '').replace(/\/$/, '')
+
+useHead({
+  script: [{
+    type: 'application/ld+json',
+    innerHTML: JSON.stringify([
+      {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'Hookcrow',
+        url: siteUrl,
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: `${siteUrl}/search?q={search_term_string}`,
+          'query-input': 'required name=search_term_string'
+        }
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'Hookcrow',
+        url: siteUrl,
+        logo: `${siteUrl}/icon.svg`
+      }
+    ])
+  }]
+})
+
 const { videos, loadBrowse } = useBrowse()
 const { authHeaders } = useAuth()
 

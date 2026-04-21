@@ -1,6 +1,11 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
 
+useSeoMeta({
+  title: 'Bookmarks',
+  robots: 'noindex,nofollow'
+})
+
 const { bookmarks, loading, loaded, fetchBookmarks } = useBookmarks()
 const { getVideoUrl } = useVideos()
 

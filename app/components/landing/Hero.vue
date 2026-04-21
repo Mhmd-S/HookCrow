@@ -84,11 +84,11 @@ function submit() {
         </div>
 
         <h1 class="text-4xl md:text-6xl font-semibold tracking-tight text-default leading-[1.05]">
-          What are you marketing?
+          Creative reference for short-form marketing videos
         </h1>
 
         <p class="text-base md:text-lg text-muted max-w-xl mx-auto">
-          Tell us your product or service and we'll pull the hooks, bridges, and CTAs real creators used to sell it.
+          Tell us what you're marketing and we'll surface real creator videos — hooks, bridges, and CTAs you can reference for your next campaign.
         </p>
       </div>
 

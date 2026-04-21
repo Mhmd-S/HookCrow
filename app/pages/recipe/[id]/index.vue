@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { LockedRecipe, VideoWithSegments, Segment, SkeletalLogicAnalysis, SkeletalLogicSegmentAnalysis, VideoVisualAnalysis, SegmentVisualAnalysis } from '~/types'
 
+useSeoMeta({
+  title: 'Recipe',
+  robots: 'noindex,nofollow'
+})
+
 const route = useRoute()
 const router = useRouter()
 const videoId = route.params.id as string

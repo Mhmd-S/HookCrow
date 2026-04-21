@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import type { SubscriptionPlan } from '~/types'
 
+useSeoMeta({
+  title: 'Pricing',
+  description: 'Go Pro to unlock every recipe — full breakdowns, script blueprints, and every premium template. Monthly or annual, cancel anytime.',
+  ogTitle: 'Pricing · Hookcrow',
+  ogDescription: 'Go Pro to unlock every recipe — full breakdowns and script blueprints.'
+})
+
+useCanonical()
+
 const { authHeaders, isPro } = useAuth()
 const loading = ref<SubscriptionPlan | null>(null)
 const error = ref<string | null>(null)
