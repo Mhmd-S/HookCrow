@@ -18,9 +18,11 @@ const resending = ref(false)
 const resendStatus = ref<'idle' | 'sent' | 'error'>('idle')
 const resendError = ref<string | null>(null)
 
+const prefillEmail = typeof route.query.email === 'string' ? route.query.email : ''
+
 const fields: AuthFormField[] = [
   { name: 'displayName', type: 'text', label: 'Display Name', placeholder: 'Your name' },
-  { name: 'email', type: 'email', label: 'Email', placeholder: 'you@example.com', required: true },
+  { name: 'email', type: 'email', label: 'Email', placeholder: 'you@example.com', required: true, defaultValue: prefillEmail },
   { name: 'password', type: 'password', label: 'Password', placeholder: 'Min. 6 characters', required: true }
 ]
 

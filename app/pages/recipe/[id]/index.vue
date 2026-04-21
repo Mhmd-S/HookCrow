@@ -205,6 +205,7 @@ function getVisualSegment(index: number): SegmentVisualAnalysis | null {
           </div>
         </section>
 
+        <PromoCta layout="banner" />
       </div>
     </div>
   </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Video } from '~/types'
+import { SEMANTIC_TAG_CATEGORIES } from '~/types'
 
 const props = defineProps<{
   videos: Video[]
@@ -19,6 +20,8 @@ const SLOTS = [
   { pos: 'bottom-[14%] right-[3%]', rot: '-5deg', w: 'w-32 lg:w-36' },
 ] as const
 
+const MOBILE_FAN_ROTATIONS = [-20, 0, 22, 42] as const
+
 const floatingCards = computed(() => {
   return props.videos.slice(0, SLOTS.length).map((video, i) => ({
     video,
@@ -26,23 +29,46 @@ const floatingCards = computed(() => {
   }))
 })
 
-const EXAMPLE_QUERIES = [
-  'meal planning app',
-  'B2B SaaS',
-  'organic skincare',
-  'online course',
-  'fitness coaching',
-  'DTC supplement'
-] as const
+const mobileLeftFan = computed(() =>
+  props.videos.slice(0, 4).map((video, i) => ({ video, rot: MOBILE_FAN_ROTATIONS[i]! }))
+)
 
-function goToResults(query: string) {
+const mobileRightFan = computed(() =>
+  props.videos.slice(4, 8).map((video, i) => ({ video, rot: -MOBILE_FAN_ROTATIONS[i]! }))
+)
+
+// Chips surface different search *formats* (Tutorial, Review, Transformation…)
+// rather than content domains (Education, Business…), since domains are already
+// rendered as sliders below. Only format tags that actually appear on videos
+// are shown, so every chip is guaranteed to return results.
+const FORMAT_TAG_SET = new Set<string>(SEMANTIC_TAG_CATEGORIES.format)
+
+const recommendations = computed<string[]>(() => {
+  const counts = new Map<string, number>()
+  for (const video of props.videos) {
+    for (const tag of video.semantic_tags || []) {
+      if (!tag || !FORMAT_TAG_SET.has(tag)) continue
+      counts.set(tag, (counts.get(tag) || 0) + 1)
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([tag]) => tag)
+})
+
+function goToQuery(query: string) {
   const q = query.trim()
   if (!q) return
   router.push({ path: '/search', query: { q } })
 }
 
+function goToTag(tag: string) {
+  router.push({ path: '/search', query: { tag } })
+}
+
 function submit() {
-  goToResults(searchQuery.value)
+  goToQuery(searchQuery.value)
 }
 </script>
 
@@ -52,6 +78,41 @@ function submit() {
       class="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 h-[60%] bg-gradient-radial from-indigo-50/60 via-transparent to-transparent blur-3xl z-0"
       aria-hidden="true"
     />
+
+    <div class="md:hidden absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+      <div
+        v-for="({ video, rot }, i) in mobileLeftFan"
+        :key="'ml-' + video.id"
+        class="absolute top-6 left-5 w-12 origin-top-left rounded-md shadow-md ring-1 ring-default bg-default overflow-hidden"
+        :style="{ transform: `rotate(${-rot}deg)`, zIndex: 10 - i }"
+      >
+        <div class="relative aspect-9/16 bg-neutral-100">
+          <video
+            :src="getVideoUrl(video.video_path)"
+            class="w-full h-full object-cover"
+            preload="metadata"
+            muted
+            playsinline
+          />
+        </div>
+      </div>
+      <div
+        v-for="({ video, rot }, i) in mobileRightFan"
+        :key="'mr-' + video.id"
+        class="absolute top-6 right-5 w-12 origin-top-right rounded-md shadow-md ring-1 ring-default bg-default overflow-hidden"
+        :style="{ transform: `rotate(${-rot}deg)`, zIndex: 10 - i }"
+      >
+        <div class="relative aspect-9/16 bg-neutral-100">
+          <video
+            :src="getVideoUrl(video.video_path)"
+            class="w-full h-full object-cover"
+            preload="metadata"
+            muted
+            playsinline
+          />
+        </div>
+      </div>
+    </div>
 
     <div class="hidden md:block absolute inset-0 pointer-events-none" aria-hidden="true">
       <div
@@ -75,14 +136,6 @@ function submit() {
 
     <div class="relative z-10 max-w-2xl mx-auto text-center space-y-8">
       <div class="space-y-5">
-        <div class="inline-flex items-center gap-2 h-8 px-3 rounded-full bg-elevated text-sm text-default">
-          <span class="relative flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-          </span>
-          Fresh templates weekly
-        </div>
-
         <h1 class="text-4xl md:text-6xl font-semibold tracking-tight text-default leading-[1.05]">
           Creative reference for short-form marketing videos
         </h1>
@@ -112,16 +165,17 @@ function submit() {
           </button>
         </label>
 
-        <div class="flex flex-wrap justify-center items-center gap-2 pt-1">
+        <div v-if="recommendations.length" class="flex flex-wrap justify-center items-center gap-2 pt-1">
           <span class="text-xs uppercase tracking-wider text-muted mr-1">Try</span>
           <button
-            v-for="query in EXAMPLE_QUERIES"
-            :key="query"
+            v-for="tag in recommendations"
+            :key="tag"
             type="button"
-            class="px-3 py-1 rounded-full text-sm bg-default ring-1 ring-default hover:ring-accented hover:bg-muted text-default transition-colors"
-            @click="goToResults(query)"
+            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm bg-default ring-1 ring-default hover:ring-accented hover:bg-muted text-default transition-colors"
+            @click="goToTag(tag)"
           >
-            {{ query }}
+            <UIcon name="i-ph-tag" class="w-3.5 h-3.5 text-dimmed" />
+            {{ tag }}
           </button>
         </div>
       </form>

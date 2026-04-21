@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { Video } from '~/types'
 
-const { videos, loading, filters, isAnon, searchInterpretation, loadBrowse, setFilters, clearFilters } = useBrowse()
+const { videos, loading, filters, searchInterpretation, loadBrowse, setFilters, clearFilters } = useBrowse()
 const { getVideoUrl } = useVideos()
-const { isPro, isAdmin, authHeaders } = useAuth()
+const { isPro, isAdmin, isAuthenticated, authHeaders } = useAuth()
 const route = useRoute()
 const router = useRouter()
 
@@ -106,6 +106,10 @@ const hasActiveFilters = computed(() => {
 })
 
 const showSliders = computed(() => !hasActiveFilters.value)
+
+const visibleVideos = computed(() =>
+  isAuthenticated.value ? videos.value : videos.value.slice(0, 5)
+)
 
 watch(showSliders, (v) => {
   if (v) loadSliders()
@@ -232,7 +236,7 @@ function formatDuration(seconds: number | null): string | null {
     <!-- Masonry (CSS columns) -->
     <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 space-y-4">
       <NuxtLink
-        v-for="video in videos"
+        v-for="video in visibleVideos"
         :key="video.id"
         :to="`/recipe/${video.id}`"
         class="group block break-inside-avoid mb-4 bg-default rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all"
@@ -295,22 +299,6 @@ function formatDuration(seconds: number | null): string | null {
       </NuxtLink>
     </div>
 
-    <!-- Anon invite footer: browsing is open; sign-up unlocks bookmarking & Pro content -->
-    <div
-      v-if="isAnon && videos.length > 0 && !loading"
-      class="mt-10 bg-default border border-default rounded-2xl p-6 md:p-8 text-center space-y-3"
-    >
-      <UIcon name="i-ph-bookmark-simple" class="w-8 h-8 text-primary mx-auto" />
-      <h3 class="text-lg font-semibold">
-        Save recipes for later
-      </h3>
-      <p class="text-muted text-sm max-w-md mx-auto">
-        Create a free account to bookmark the recipes you want to steal. Pro unlocks premium ones.
-      </p>
-      <div class="flex flex-wrap gap-2 justify-center pt-2">
-        <UButton to="/register" size="lg" icon="i-ph-user-plus">Sign up — it's free</UButton>
-        <UButton to="/login" size="lg" variant="ghost">Log in</UButton>
-      </div>
-    </div>
+    <PromoCta v-if="videos.length > 0 && !loading" layout="banner" class="mt-10" />
   </div>
 </template>

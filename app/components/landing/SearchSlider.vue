@@ -16,9 +16,13 @@ const props = withDefaults(defineProps<{
 })
 
 const { getVideoUrl } = useVideos()
-const { isPro, isAdmin } = useAuth()
+const { isPro, isAdmin, isAuthenticated } = useAuth()
 
 const scroller = ref<HTMLElement | null>(null)
+
+const visibleVideos = computed(() =>
+  isAuthenticated.value ? props.videos : props.videos.slice(0, 6)
+)
 
 const seeAllTo = computed(() => {
   const q: Record<string, string> = {}
@@ -85,7 +89,7 @@ function scrollBy(direction: 1 | -1) {
       ref="scroller"
       class="flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory -mx-4 px-4 md:-mx-6 md:px-6 py-2"
     >
-      <template v-if="loading && videos.length === 0">
+      <template v-if="loading && visibleVideos.length === 0">
         <div
           v-for="n in 6"
           :key="`s-${n}`"
@@ -97,7 +101,7 @@ function scrollBy(direction: 1 | -1) {
       </template>
 
       <NuxtLink
-        v-for="video in videos"
+        v-for="video in visibleVideos"
         v-else
         :key="video.id"
         :to="`/recipe/${video.id}`"
@@ -139,6 +143,8 @@ function scrollBy(direction: 1 | -1) {
           </div>
         </div>
       </NuxtLink>
+
+      <PromoCta v-if="!loading && videos.length > 0" layout="card" />
     </div>
   </section>
 </template>

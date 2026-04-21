@@ -36,9 +36,7 @@ const { isAuthenticated } = useAuth()
           <ul class="space-y-2 text-sm">
             <li><NuxtLink to="/terms" class="text-default hover:text-primary transition-colors">Terms</NuxtLink></li>
             <li><NuxtLink to="/privacy" class="text-default hover:text-primary transition-colors">Privacy</NuxtLink></li>
-            <li>
-              <a href="mailto:support@example.com" class="text-default hover:text-primary transition-colors">Contact</a>
-            </li>
+            <li><NuxtLink to="/contact" class="text-default hover:text-primary transition-colors">Contact</NuxtLink></li>
           </ul>
         </div>
       </div>

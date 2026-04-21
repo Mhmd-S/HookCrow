@@ -20,7 +20,7 @@ useSeoMeta({
 
     <p class="text-xs text-dimmed mt-8">
       Questions? Email
-      <a href="mailto:support@example.com" class="text-primary hover:underline">support@example.com</a>
+      <a href="mailto:support@hookcrow.com" class="text-primary hover:underline">support@hookcrow.com</a>
     </p>
   </div>
 </template>

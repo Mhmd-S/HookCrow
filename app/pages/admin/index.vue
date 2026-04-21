@@ -11,6 +11,7 @@ const videos = ref<Video[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const statusFilter = ref<VideoStatus | 'all'>('all')
+const accessFilter = ref<'all' | 'free' | 'premium'>('all')
 const viewMode = ref<'grid' | 'grouped'>('grouped')
 
 // Backfill state
@@ -74,18 +75,38 @@ async function handleDelete(id: string) {
   }
 }
 
-async function handleToggleStatus(video: Video) {
-  const next: VideoStatus = video.status === 'complete' ? 'draft' : 'complete'
-  const payload: VideoUpdate = { status: next }
-  const { data, error: err } = await updateVideo(video.id, payload)
-  if (err) {
-    error.value = err.message
-    return
-  }
-  if (data) {
-    const idx = videos.value.findIndex(v => v.id === video.id)
-    if (idx !== -1) videos.value[idx] = { ...videos.value[idx], status: data.status } as Video
-  }
+function handleToggleStatus(video: Video) {
+  const original = video.status
+  const next: VideoStatus = original === 'complete' ? 'draft' : 'complete'
+  video.status = next
+  updateVideo(video.id, { status: next }).then(({ error: err }) => {
+    if (err) {
+      video.status = original
+      error.value = err.message
+    }
+  })
+}
+
+function handleTogglePremium(video: Video) {
+  const original = video.is_premium
+  video.is_premium = !original
+  updateVideo(video.id, { is_premium: video.is_premium }).then(({ error: err }) => {
+    if (err) {
+      video.is_premium = original
+      error.value = err.message
+    }
+  })
+}
+
+function handleTogglePublished(video: Video) {
+  const original = video.is_published
+  video.is_published = !original
+  updateVideo(video.id, { is_published: video.is_published }).then(({ error: err }) => {
+    if (err) {
+      video.is_published = original
+      error.value = err.message
+    }
+  })
 }
 
 function formatDate(date: string) {
@@ -110,8 +131,12 @@ function getLogicFlowShortName(name: string): string {
 onMounted(loadVideos)
 
 const filteredVideos = computed(() => {
-  if (statusFilter.value === 'all') return videos.value
-  return videos.value.filter(v => v.status === statusFilter.value)
+  return videos.value.filter(v => {
+    if (statusFilter.value !== 'all' && v.status !== statusFilter.value) return false
+    if (accessFilter.value === 'premium' && !v.is_premium) return false
+    if (accessFilter.value === 'free' && v.is_premium) return false
+    return true
+  })
 })
 
 const groupedVideos = computed(() => {
@@ -142,6 +167,8 @@ const groupedVideos = computed(() => {
 
 const draftCount = computed(() => videos.value.filter(v => v.status === 'draft').length)
 const completeCount = computed(() => videos.value.filter(v => v.status === 'complete').length)
+const premiumCount = computed(() => videos.value.filter(v => v.is_premium).length)
+const freeCount = computed(() => videos.value.filter(v => !v.is_premium).length)
 </script>
 
 <template>
@@ -177,8 +204,8 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
       </div>
 
       <!-- Filter Tabs & View Toggle -->
-      <div class="flex items-center justify-between mb-6">
-        <div class="flex gap-2">
+      <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div class="flex gap-2 flex-wrap">
           <UButton
             :variant="statusFilter === 'all' ? 'solid' : 'ghost'"
             size="sm"
@@ -201,6 +228,33 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
             @click="statusFilter = 'complete'"
           >
             Complete ({{ completeCount }})
+          </UButton>
+          <div class="w-px bg-neutral-200 dark:bg-neutral-800 mx-1" />
+          <UButton
+            :variant="accessFilter === 'all' ? 'solid' : 'ghost'"
+            size="sm"
+            color="neutral"
+            @click="accessFilter = 'all'"
+          >
+            Any access
+          </UButton>
+          <UButton
+            :variant="accessFilter === 'free' ? 'solid' : 'ghost'"
+            size="sm"
+            color="neutral"
+            icon="i-ph-globe"
+            @click="accessFilter = 'free'"
+          >
+            Free ({{ freeCount }})
+          </UButton>
+          <UButton
+            :variant="accessFilter === 'premium' ? 'solid' : 'ghost'"
+            size="sm"
+            color="primary"
+            icon="i-ph-crown-simple"
+            @click="accessFilter = 'premium'"
+          >
+            Pro ({{ premiumCount }})
           </UButton>
         </div>
         <div class="flex gap-1">
@@ -275,13 +329,21 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
                     class="w-10 h-10 text-white opacity-0 group-hover:opacity-100 transition-opacity"
                   />
                 </div>
-                <div class="absolute top-2 left-2">
+                <div class="absolute top-2 left-2 flex flex-col gap-1">
                   <UBadge
                     :color="video.status === 'complete' ? 'success' : 'warning'"
                     size="xs"
                     variant="solid"
                   >
                     {{ video.status === 'complete' ? 'Complete' : 'Draft' }}
+                  </UBadge>
+                  <UBadge
+                    :color="video.is_premium ? 'primary' : 'neutral'"
+                    :variant="video.is_premium ? 'solid' : 'subtle'"
+                    size="xs"
+                  >
+                    <UIcon :name="video.is_premium ? 'i-ph-crown-simple' : 'i-ph-globe'" class="w-3 h-3 mr-1" />
+                    {{ video.is_premium ? 'Pro' : 'Free' }}
                   </UBadge>
                 </div>
                 <div v-if="video.is_published" class="absolute top-2 right-2">
@@ -295,6 +357,24 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
                 <div class="flex items-center justify-between mt-2">
                   <p class="text-xs text-neutral-400">{{ formatDate(video.created_at) }}</p>
                   <div class="flex gap-1">
+                    <UButton
+                      size="xs"
+                      :variant="video.is_premium ? 'soft' : 'ghost'"
+                      :color="video.is_premium ? 'primary' : 'neutral'"
+                      icon="i-ph-crown-simple"
+                      :aria-label="video.is_premium ? 'Mark as free' : 'Mark as premium'"
+                      :title="video.is_premium ? 'Premium — click to make free' : 'Free — click to make premium'"
+                      @click="handleTogglePremium(video)"
+                    />
+                    <UButton
+                      size="xs"
+                      :variant="video.is_published ? 'soft' : 'ghost'"
+                      :color="video.is_published ? 'success' : 'neutral'"
+                      :icon="video.is_published ? 'i-ph-eye' : 'i-ph-eye-slash'"
+                      :aria-label="video.is_published ? 'Unpublish' : 'Publish'"
+                      :title="video.is_published ? 'Published — click to unpublish' : 'Unpublished — click to publish'"
+                      @click="handleTogglePublished(video)"
+                    />
                     <UButton
                       size="xs"
                       variant="ghost"
@@ -354,13 +434,21 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
                 class="w-12 h-12 text-white opacity-0 group-hover:opacity-100 transition-opacity"
               />
             </div>
-            <div class="absolute top-2 left-2">
+            <div class="absolute top-2 left-2 flex flex-col gap-1">
               <UBadge
                 :color="video.status === 'complete' ? 'success' : 'warning'"
                 size="xs"
                 variant="solid"
               >
                 {{ video.status === 'complete' ? 'Complete' : 'Draft' }}
+              </UBadge>
+              <UBadge
+                :color="video.is_premium ? 'primary' : 'neutral'"
+                :variant="video.is_premium ? 'solid' : 'subtle'"
+                size="xs"
+              >
+                <UIcon :name="video.is_premium ? 'i-ph-crown-simple' : 'i-ph-globe'" class="w-3 h-3 mr-1" />
+                {{ video.is_premium ? 'Pro' : 'Free' }}
               </UBadge>
             </div>
             <div v-if="video.logic_flow_id" class="absolute top-2 right-2">
@@ -386,7 +474,7 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
             </p>
           </div>
 
-          <div class="px-4 pb-4 flex gap-2">
+          <div class="px-4 pb-4 flex gap-2 flex-wrap">
             <UButton
               :to="`/admin/recipes/${video.id}`"
               size="sm"
@@ -405,6 +493,24 @@ const completeCount = computed(() => videos.value.filter(v => v.status === 'comp
             >
               View
             </UButton>
+            <UButton
+              size="sm"
+              :variant="video.is_premium ? 'soft' : 'ghost'"
+              :color="video.is_premium ? 'primary' : 'neutral'"
+              icon="i-ph-crown-simple"
+              :aria-label="video.is_premium ? 'Mark as free' : 'Mark as premium'"
+              :title="video.is_premium ? 'Premium — click to make free' : 'Free — click to make premium'"
+              @click="handleTogglePremium(video)"
+            />
+            <UButton
+              size="sm"
+              :variant="video.is_published ? 'soft' : 'ghost'"
+              :color="video.is_published ? 'success' : 'neutral'"
+              :icon="video.is_published ? 'i-ph-eye' : 'i-ph-eye-slash'"
+              :aria-label="video.is_published ? 'Unpublish' : 'Publish'"
+              :title="video.is_published ? 'Published — click to unpublish' : 'Unpublished — click to publish'"
+              @click="handleTogglePublished(video)"
+            />
             <UButton
               size="sm"
               variant="ghost"
