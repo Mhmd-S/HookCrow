@@ -82,6 +82,12 @@ export function useVideos() {
     return `${supabaseUrl}/storage/v1/object/public/videos/${path}`
   }
 
+  // iOS Safari won't paint a first frame from preload="metadata" alone; a time
+  // fragment forces it to seek and render that frame as a thumbnail.
+  function getVideoThumbnailUrl(path: string): string {
+    return `${getVideoUrl(path)}#t=0.1`
+  }
+
   return {
     fetchVideos,
     fetchVideo,
@@ -89,6 +95,7 @@ export function useVideos() {
     updateVideo,
     deleteVideo,
     uploadVideoFile,
-    getVideoUrl
+    getVideoUrl,
+    getVideoThumbnailUrl
   }
 }

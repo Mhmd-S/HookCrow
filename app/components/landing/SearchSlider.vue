@@ -15,7 +15,7 @@ const props = withDefaults(defineProps<{
   tag: ''
 })
 
-const { getVideoUrl } = useVideos()
+const { getVideoThumbnailUrl } = useVideos()
 const { isPro, isAdmin, isAuthenticated } = useAuth()
 
 const scroller = ref<HTMLElement | null>(null)
@@ -109,7 +109,7 @@ function scrollBy(direction: 1 | -1) {
       >
         <div class="relative rounded-xl overflow-hidden bg-neutral-100 ring-1 ring-default shadow-sm group-hover:shadow-lg group-hover:-translate-y-0.5 transition-all">
           <video
-            :src="getVideoUrl(video.video_path)"
+            :src="getVideoThumbnailUrl(video.video_path)"
             class="w-full h-full object-cover"
             :class="{ 'blur-md scale-110': isLocked(video) }"
             preload="metadata"

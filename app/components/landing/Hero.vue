@@ -6,7 +6,7 @@ const props = defineProps<{
   videos: Video[]
 }>()
 
-const { getVideoUrl } = useVideos()
+const { getVideoThumbnailUrl } = useVideos()
 const router = useRouter()
 
 const searchQuery = ref('')
@@ -88,7 +88,7 @@ function submit() {
       >
         <div class="relative aspect-9/16 bg-neutral-100">
           <video
-            :src="getVideoUrl(video.video_path)"
+            :src="getVideoThumbnailUrl(video.video_path)"
             class="w-full h-full object-cover"
             preload="metadata"
             muted
@@ -104,7 +104,7 @@ function submit() {
       >
         <div class="relative aspect-9/16 bg-neutral-100">
           <video
-            :src="getVideoUrl(video.video_path)"
+            :src="getVideoThumbnailUrl(video.video_path)"
             class="w-full h-full object-cover"
             preload="metadata"
             muted
@@ -124,7 +124,7 @@ function submit() {
       >
         <div class="relative aspect-9/16 bg-neutral-100">
           <video
-            :src="getVideoUrl(video.video_path)"
+            :src="getVideoThumbnailUrl(video.video_path)"
             class="w-full h-full object-cover"
             preload="metadata"
             muted
