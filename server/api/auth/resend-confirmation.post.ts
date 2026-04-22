@@ -6,8 +6,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Email is required' })
   }
 
-  const config = useRuntimeConfig()
-  const siteUrl = (config.public.siteUrl as string) || 'http://localhost:3000'
+  const siteUrl = getRequestSiteUrl(event)
 
   const supabase = createServerSupabase()
   const { error } = await supabase.auth.resend({

@@ -6,8 +6,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Email and password are required' })
   }
 
-  const config = useRuntimeConfig()
-  const siteUrl = (config.public.siteUrl as string) || 'http://localhost:3000'
+  const siteUrl = getRequestSiteUrl(event)
 
   const authClient = createServerSupabase()
   const { data, error } = await authClient.auth.signUp({

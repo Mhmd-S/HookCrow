@@ -4,7 +4,8 @@ useSeoMeta({
   robots: 'noindex,nofollow'
 })
 
-const { refreshProfile, isPro } = useAuth()
+const route = useRoute()
+const { refreshProfile, isPro, authHeaders } = useAuth()
 
 const checking = ref(true)
 let attempts = 0
@@ -20,7 +21,30 @@ async function poll() {
   setTimeout(poll, 1500)
 }
 
-onMounted(poll)
+async function trySyncFromSession(): Promise<boolean> {
+  const sessionId = route.query.session_id
+  if (typeof sessionId !== 'string' || !sessionId) return false
+  try {
+    await $fetch('/api/stripe/sync-session', {
+      method: 'POST',
+      body: { sessionId },
+      headers: authHeaders()
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+onMounted(async () => {
+  await trySyncFromSession()
+  await refreshProfile()
+  if (isPro.value) {
+    checking.value = false
+    return
+  }
+  poll()
+})
 </script>
 
 <template>
