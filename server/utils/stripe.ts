@@ -35,7 +35,7 @@ export function getSiteUrl(): string {
   return (config.public.siteUrl as string) || 'http://localhost:3000'
 }
 
-export function mapSubscriptionStatus(status: Stripe.Subscription.Status): SubscriptionStatus {
+export function mapSubscriptionStatus(status: string): SubscriptionStatus {
   switch (status) {
     case 'active':
     case 'trialing':
@@ -51,12 +51,14 @@ export function mapSubscriptionStatus(status: Stripe.Subscription.Status): Subsc
   }
 }
 
-export function extractPlanFromSubscription(sub: Stripe.Subscription): SubscriptionPlan | null {
-  const item = sub.items.data[0]
-  const interval = item?.price?.recurring?.interval
+export function mapIntervalToPlan(interval: string | null | undefined): SubscriptionPlan | null {
   if (interval === 'month') return 'monthly'
   if (interval === 'year') return 'annual'
   return null
+}
+
+export function extractPlanFromSubscription(sub: Stripe.Subscription): SubscriptionPlan | null {
+  return mapIntervalToPlan(sub.items.data[0]?.price?.recurring?.interval)
 }
 
 export interface SyncSubscriptionResult {
@@ -71,12 +73,22 @@ export interface SyncSubscriptionResult {
   previousCancelAtPeriodEnd: boolean
 }
 
-export async function syncSubscription(
-  sub: Stripe.Subscription,
+export interface SubscriptionSyncInput {
+  subscriptionId: string
+  customerId: string
+  statusRaw: string
+  cancelAtPeriodEnd: boolean
+  currentPeriodEnd: string | null
+  interval: string | null
+  metadataProfileId: string | null
+}
+
+export async function syncSubscriptionFromFields(
+  input: SubscriptionSyncInput,
   knownProfileId?: string
 ): Promise<SyncSubscriptionResult | null> {
   const supabase = useServerSupabase()
-  const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id
+  const { subscriptionId, customerId, metadataProfileId } = input
 
   let profile: { id: string, email: string, subscription_status: SubscriptionStatus, cancel_at_period_end: boolean } | null = null
 
@@ -105,23 +117,20 @@ export async function syncSubscription(
   // the checkout endpoint). Covers the case where stripe_customer_id wasn't
   // persisted on the profile — we link the customer back now, so future
   // webhook events resolve by customer id on the first lookup.
-  if (!profile) {
-    const metadataProfileId = typeof sub.metadata?.profile_id === 'string' ? sub.metadata.profile_id : null
-    if (metadataProfileId) {
-      const { data: byId } = await supabase
-        .from('profiles')
-        .select('id, email, subscription_status, cancel_at_period_end')
-        .eq('id', metadataProfileId)
-        .single()
-      if (byId) profile = byId
-    }
+  if (!profile && metadataProfileId) {
+    const { data: byId } = await supabase
+      .from('profiles')
+      .select('id, email, subscription_status, cancel_at_period_end')
+      .eq('id', metadataProfileId)
+      .single()
+    if (byId) profile = byId
   }
 
   if (!profile) {
     log.warn('syncSubscription could not resolve profile', {
-      subscriptionId: sub.id,
+      subscriptionId,
       customerId,
-      metadataProfileId: sub.metadata?.profile_id ?? null,
+      metadataProfileId,
       knownProfileId: knownProfileId ?? null
     })
     return null
@@ -143,21 +152,16 @@ export async function syncSubscription(
     }
   }
 
-  const firstItem = sub.items.data[0] as (Stripe.SubscriptionItem & { current_period_end?: number }) | undefined
-  const periodEnd = firstItem?.current_period_end
-  const currentPeriodEnd = typeof periodEnd === 'number'
-    ? new Date(periodEnd * 1000).toISOString()
-    : null
-
-  const status = mapSubscriptionStatus(sub.status)
-  const plan = extractPlanFromSubscription(sub)
-  const cancelAtPeriodEnd = Boolean(sub.cancel_at_period_end)
+  const status = mapSubscriptionStatus(input.statusRaw)
+  const plan = mapIntervalToPlan(input.interval)
+  const cancelAtPeriodEnd = Boolean(input.cancelAtPeriodEnd)
+  const currentPeriodEnd = input.currentPeriodEnd
 
   await supabase
     .from('profiles')
     .update({
       subscription_status: status,
-      subscription_id: sub.id,
+      subscription_id: subscriptionId,
       current_period_end: currentPeriodEnd,
       cancel_at_period_end: cancelAtPeriodEnd,
       plan
@@ -169,10 +173,32 @@ export async function syncSubscription(
     email: profile.email,
     status,
     previousStatus: profile.subscription_status,
-    subscriptionId: sub.id,
+    subscriptionId,
     plan,
     currentPeriodEnd,
     cancelAtPeriodEnd,
     previousCancelAtPeriodEnd: profile.cancel_at_period_end
   }
+}
+
+export async function syncSubscription(
+  sub: Stripe.Subscription,
+  knownProfileId?: string
+): Promise<SyncSubscriptionResult | null> {
+  const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id
+  const firstItem = sub.items.data[0] as (Stripe.SubscriptionItem & { current_period_end?: number }) | undefined
+  const periodEnd = firstItem?.current_period_end
+  const currentPeriodEnd = typeof periodEnd === 'number'
+    ? new Date(periodEnd * 1000).toISOString()
+    : null
+
+  return syncSubscriptionFromFields({
+    subscriptionId: sub.id,
+    customerId,
+    statusRaw: sub.status,
+    cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end),
+    currentPeriodEnd,
+    interval: firstItem?.price?.recurring?.interval ?? null,
+    metadataProfileId: typeof sub.metadata?.profile_id === 'string' ? sub.metadata.profile_id : null
+  }, knownProfileId)
 }
