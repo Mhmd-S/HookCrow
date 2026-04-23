@@ -138,3 +138,9 @@ REVOKE ALL ON public.v_stripe_invoices          FROM PUBLIC;
 GRANT SELECT ON public.v_stripe_checkout_sessions TO service_role;
 GRANT SELECT ON public.v_stripe_subscriptions     TO service_role;
 GRANT SELECT ON public.v_stripe_invoices          TO service_role;
+
+-- 7. PostgREST schema cache --------------------------------------------------
+-- Without this, newly created views aren't visible to supabase-js until
+-- PostgREST's periodic introspection catches up — `.from('v_stripe_...')`
+-- fails with "Could not find the table ... in the schema cache."
+NOTIFY pgrst, 'reload schema';

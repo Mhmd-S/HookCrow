@@ -35,8 +35,12 @@ export function getSiteUrl(): string {
   return (config.public.siteUrl as string) || 'http://localhost:3000'
 }
 
-export function mapSubscriptionStatus(status: string): SubscriptionStatus {
-  switch (status) {
+// ---------------------------------------------------------------------------
+// Subscription sync
+// ---------------------------------------------------------------------------
+
+function mapStatus(raw: string): SubscriptionStatus {
+  switch (raw) {
     case 'active':
     case 'trialing':
       return 'active'
@@ -51,14 +55,20 @@ export function mapSubscriptionStatus(status: string): SubscriptionStatus {
   }
 }
 
-export function mapIntervalToPlan(interval: string | null | undefined): SubscriptionPlan | null {
+function mapPlan(interval: string | null | undefined): SubscriptionPlan | null {
   if (interval === 'month') return 'monthly'
   if (interval === 'year') return 'annual'
   return null
 }
 
-export function extractPlanFromSubscription(sub: Stripe.Subscription): SubscriptionPlan | null {
-  return mapIntervalToPlan(sub.items.data[0]?.price?.recurring?.interval)
+export interface SubscriptionSyncInput {
+  subscriptionId: string
+  customerId: string
+  statusRaw: string
+  cancelAtPeriodEnd: boolean
+  currentPeriodEnd: string | null
+  interval: string | null
+  metadataProfileId: string | null
 }
 
 export interface SyncSubscriptionResult {
@@ -73,14 +83,52 @@ export interface SyncSubscriptionResult {
   previousCancelAtPeriodEnd: boolean
 }
 
-export interface SubscriptionSyncInput {
-  subscriptionId: string
-  customerId: string
-  statusRaw: string
-  cancelAtPeriodEnd: boolean
-  currentPeriodEnd: string | null
-  interval: string | null
-  metadataProfileId: string | null
+interface ProfileRow {
+  id: string
+  email: string
+  subscription_status: SubscriptionStatus
+  cancel_at_period_end: boolean
+  stripe_customer_id: string | null
+}
+
+// Resolution order:
+//   1. knownProfileId — caller verified ownership out-of-band (sync-session
+//      matches the JWT subject against the Checkout Session's
+//      client_reference_id before calling).
+//   2. metadata.profile_id — /api/billing/checkout writes the profile id into
+//      subscription_data.metadata. This IS the primary contract for any
+//      subscription created by our own flow; trust it.
+//   3. stripe_customer_id — recovery path for subs NOT created by our
+//      checkout (imports, manual Stripe-dashboard creation).
+async function resolveProfile(
+  supabase: ReturnType<typeof useServerSupabase>,
+  input: SubscriptionSyncInput,
+  knownProfileId: string | undefined
+): Promise<{ profile: ProfileRow | null, error: Error | null }> {
+  const candidateId = knownProfileId ?? input.metadataProfileId
+  if (candidateId) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, subscription_status, cancel_at_period_end, stripe_customer_id')
+      .eq('id', candidateId)
+      .maybeSingle<ProfileRow>()
+    if (error) {
+      return { profile: null, error: new Error(`profiles select by id failed: ${error.message}`) }
+    }
+    if (data) return { profile: data, error: null }
+    // Fall through to customer-id recovery if the id candidate matched
+    // nothing — profile may have been deleted, or metadata may be stale.
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, email, subscription_status, cancel_at_period_end, stripe_customer_id')
+    .eq('stripe_customer_id', input.customerId)
+    .maybeSingle<ProfileRow>()
+  if (error) {
+    return { profile: null, error: new Error(`profiles select by stripe_customer_id failed: ${error.message}`) }
+  }
+  return { profile: data ?? null, error: null }
 }
 
 export async function syncSubscriptionFromFields(
@@ -88,94 +136,65 @@ export async function syncSubscriptionFromFields(
   knownProfileId?: string
 ): Promise<SyncSubscriptionResult | null> {
   const supabase = useServerSupabase()
-  const { subscriptionId, customerId, metadataProfileId } = input
 
-  let profile: { id: string, email: string, subscription_status: SubscriptionStatus, cancel_at_period_end: boolean } | null = null
-
-  // Preferred path: caller already identified the profile (e.g., sync-session
-  // verified ownership via client_reference_id). Skip the customer lookup.
-  if (knownProfileId) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, email, subscription_status, cancel_at_period_end')
-      .eq('id', knownProfileId)
-      .single()
-    if (data) profile = data
+  const { profile, error: resolveErr } = await resolveProfile(supabase, input, knownProfileId)
+  if (resolveErr) {
+    log.error('Profile resolution failed', resolveErr, {
+      subscriptionId: input.subscriptionId,
+      customerId: input.customerId,
+      metadataProfileId: input.metadataProfileId,
+      knownProfileId: knownProfileId ?? null
+    })
+    return null
   }
-
-  // Webhook path: match the profile by stripe_customer_id.
   if (!profile) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, email, subscription_status, cancel_at_period_end')
-      .eq('stripe_customer_id', customerId)
-      .single()
-    if (data) profile = data
-  }
-
-  // Fallback: the subscription carries the profile id in metadata (set by
-  // the checkout endpoint). Covers the case where stripe_customer_id wasn't
-  // persisted on the profile — we link the customer back now, so future
-  // webhook events resolve by customer id on the first lookup.
-  if (!profile && metadataProfileId) {
-    const { data: byId } = await supabase
-      .from('profiles')
-      .select('id, email, subscription_status, cancel_at_period_end')
-      .eq('id', metadataProfileId)
-      .single()
-    if (byId) profile = byId
-  }
-
-  if (!profile) {
-    log.warn('syncSubscription could not resolve profile', {
-      subscriptionId,
-      customerId,
-      metadataProfileId,
+    // Every resolution path produced zero rows. Log enough context to
+    // tell apart "profile was deleted", "metadata carries a stale id", and
+    // "subscription wasn't created by our checkout."
+    log.error('Could not resolve profile for Stripe subscription', undefined, {
+      subscriptionId: input.subscriptionId,
+      customerId: input.customerId,
+      metadataProfileId: input.metadataProfileId,
       knownProfileId: knownProfileId ?? null
     })
     return null
   }
 
-  // Ensure the profile is linked to the Stripe customer for future lookups.
-  const { data: currentLink } = await supabase
-    .from('profiles')
-    .select('stripe_customer_id')
-    .eq('id', profile.id)
-    .single()
-  if (currentLink?.stripe_customer_id !== customerId) {
-    const { error: linkErr } = await supabase
-      .from('profiles')
-      .update({ stripe_customer_id: customerId })
-      .eq('id', profile.id)
-    if (linkErr) {
-      log.warn('Failed to link stripe_customer_id in syncSubscription', { profileId: profile.id, customerId, error: linkErr.message })
-    }
-  }
-
-  const status = mapSubscriptionStatus(input.statusRaw)
-  const plan = mapIntervalToPlan(input.interval)
+  const status = mapStatus(input.statusRaw)
+  const plan = mapPlan(input.interval)
   const cancelAtPeriodEnd = Boolean(input.cancelAtPeriodEnd)
-  const currentPeriodEnd = input.currentPeriodEnd
 
-  await supabase
+  // Single UPDATE covers the customer link + the full subscription state.
+  // Re-writing stripe_customer_id to its current value is a no-op, so this
+  // stays safe on repeat syncs.
+  const { error: updateErr } = await supabase
     .from('profiles')
     .update({
+      stripe_customer_id: input.customerId,
+      subscription_id: input.subscriptionId,
       subscription_status: status,
-      subscription_id: subscriptionId,
-      current_period_end: currentPeriodEnd,
+      current_period_end: input.currentPeriodEnd,
       cancel_at_period_end: cancelAtPeriodEnd,
       plan
     })
     .eq('id', profile.id)
+
+  if (updateErr) {
+    log.error('profiles update failed', new Error(updateErr.message), {
+      profileId: profile.id,
+      subscriptionId: input.subscriptionId
+    })
+    return null
+  }
 
   return {
     profileId: profile.id,
     email: profile.email,
     status,
     previousStatus: profile.subscription_status,
-    subscriptionId,
+    subscriptionId: input.subscriptionId,
     plan,
-    currentPeriodEnd,
+    currentPeriodEnd: input.currentPeriodEnd,
     cancelAtPeriodEnd,
     previousCancelAtPeriodEnd: profile.cancel_at_period_end
   }
