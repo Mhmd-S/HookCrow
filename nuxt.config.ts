@@ -39,6 +39,8 @@ export default defineNuxtConfig({
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
     stripePriceIdMonthly: process.env.STRIPE_PRICE_ID_MONTHLY,
     stripePriceIdAnnual: process.env.STRIPE_PRICE_ID_ANNUAL,
+    resendApiKey: process.env.RESEND_API_KEY,
+    emailFrom: process.env.EMAIL_FROM,
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       siteUrl: process.env.SITE_URL || 'http://localhost:3000'

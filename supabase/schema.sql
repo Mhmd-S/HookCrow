@@ -55,10 +55,13 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   stripe_customer_id text,
   subscription_id text,
   current_period_end timestamp with time zone,
+  cancel_at_period_end boolean NOT NULL DEFAULT false,
   plan text CHECK (plan IN ('monthly', 'annual')),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now()
 );
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS cancel_at_period_end boolean NOT NULL DEFAULT false;
 CREATE INDEX IF NOT EXISTS idx_profiles_stripe_customer_id
   ON public.profiles(stripe_customer_id);
 

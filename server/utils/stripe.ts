@@ -59,8 +59,14 @@ export function extractPlanFromSubscription(sub: Stripe.Subscription): Subscript
 
 export interface SyncSubscriptionResult {
   profileId: string
+  email: string
   status: SubscriptionStatus
+  previousStatus: SubscriptionStatus
   subscriptionId: string
+  plan: SubscriptionPlan | null
+  currentPeriodEnd: string | null
+  cancelAtPeriodEnd: boolean
+  previousCancelAtPeriodEnd: boolean
 }
 
 export async function syncSubscription(sub: Stripe.Subscription): Promise<SyncSubscriptionResult | null> {
@@ -69,7 +75,7 @@ export async function syncSubscription(sub: Stripe.Subscription): Promise<SyncSu
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id')
+    .select('id, email, subscription_status, cancel_at_period_end')
     .eq('stripe_customer_id', customerId)
     .single()
 
@@ -82,6 +88,8 @@ export async function syncSubscription(sub: Stripe.Subscription): Promise<SyncSu
     : null
 
   const status = mapSubscriptionStatus(sub.status)
+  const plan = extractPlanFromSubscription(sub)
+  const cancelAtPeriodEnd = Boolean(sub.cancel_at_period_end)
 
   await supabase
     .from('profiles')
@@ -89,9 +97,20 @@ export async function syncSubscription(sub: Stripe.Subscription): Promise<SyncSu
       subscription_status: status,
       subscription_id: sub.id,
       current_period_end: currentPeriodEnd,
-      plan: extractPlanFromSubscription(sub)
+      cancel_at_period_end: cancelAtPeriodEnd,
+      plan
     })
     .eq('id', profile.id)
 
-  return { profileId: profile.id, status, subscriptionId: sub.id }
+  return {
+    profileId: profile.id,
+    email: profile.email,
+    status,
+    previousStatus: profile.subscription_status,
+    subscriptionId: sub.id,
+    plan,
+    currentPeriodEnd,
+    cancelAtPeriodEnd,
+    previousCancelAtPeriodEnd: profile.cancel_at_period_end
+  }
 }
