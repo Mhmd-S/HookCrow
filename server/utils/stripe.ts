@@ -71,15 +71,35 @@ export interface SyncSubscriptionResult {
   previousCancelAtPeriodEnd: boolean
 }
 
-export async function syncSubscription(sub: Stripe.Subscription): Promise<SyncSubscriptionResult | null> {
+export async function syncSubscription(
+  sub: Stripe.Subscription,
+  knownProfileId?: string
+): Promise<SyncSubscriptionResult | null> {
   const supabase = useServerSupabase()
   const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id
 
-  let { data: profile } = await supabase
-    .from('profiles')
-    .select('id, email, subscription_status, cancel_at_period_end')
-    .eq('stripe_customer_id', customerId)
-    .single()
+  let profile: { id: string, email: string, subscription_status: SubscriptionStatus, cancel_at_period_end: boolean } | null = null
+
+  // Preferred path: caller already identified the profile (e.g., sync-session
+  // verified ownership via client_reference_id). Skip the customer lookup.
+  if (knownProfileId) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, email, subscription_status, cancel_at_period_end')
+      .eq('id', knownProfileId)
+      .single()
+    if (data) profile = data
+  }
+
+  // Webhook path: match the profile by stripe_customer_id.
+  if (!profile) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, email, subscription_status, cancel_at_period_end')
+      .eq('stripe_customer_id', customerId)
+      .single()
+    if (data) profile = data
+  }
 
   // Fallback: the subscription carries the profile id in metadata (set by
   // the checkout endpoint). Covers the case where stripe_customer_id wasn't
@@ -93,22 +113,35 @@ export async function syncSubscription(sub: Stripe.Subscription): Promise<SyncSu
         .select('id, email, subscription_status, cancel_at_period_end')
         .eq('id', metadataProfileId)
         .single()
-      if (byId) {
-        profile = byId
-        const { error: linkErr } = await supabase
-          .from('profiles')
-          .update({ stripe_customer_id: customerId })
-          .eq('id', byId.id)
-        if (linkErr) {
-          log.warn('Failed to backfill stripe_customer_id', { profileId: byId.id, customerId, error: linkErr.message })
-        } else {
-          log.info('Backfilled stripe_customer_id from subscription metadata', { profileId: byId.id, customerId })
-        }
-      }
+      if (byId) profile = byId
     }
   }
 
-  if (!profile) return null
+  if (!profile) {
+    log.warn('syncSubscription could not resolve profile', {
+      subscriptionId: sub.id,
+      customerId,
+      metadataProfileId: sub.metadata?.profile_id ?? null,
+      knownProfileId: knownProfileId ?? null
+    })
+    return null
+  }
+
+  // Ensure the profile is linked to the Stripe customer for future lookups.
+  const { data: currentLink } = await supabase
+    .from('profiles')
+    .select('stripe_customer_id')
+    .eq('id', profile.id)
+    .single()
+  if (currentLink?.stripe_customer_id !== customerId) {
+    const { error: linkErr } = await supabase
+      .from('profiles')
+      .update({ stripe_customer_id: customerId })
+      .eq('id', profile.id)
+    if (linkErr) {
+      log.warn('Failed to link stripe_customer_id in syncSubscription', { profileId: profile.id, customerId, error: linkErr.message })
+    }
+  }
 
   const firstItem = sub.items.data[0] as (Stripe.SubscriptionItem & { current_period_end?: number }) | undefined
   const periodEnd = firstItem?.current_period_end

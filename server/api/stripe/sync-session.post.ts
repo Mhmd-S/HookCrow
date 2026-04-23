@@ -54,7 +54,10 @@ export default defineEventHandler(async (event) => {
     return { success: false, reason: 'no_subscription' as const }
   }
 
-  const result = await syncSubscription(subscription)
+  // Pass the verified profile id so syncSubscription skips the customer-id
+  // lookup entirely. Ownership was already confirmed above via client_reference_id
+  // or stripe_customer_id match.
+  const result = await syncSubscription(subscription, profile.id)
   if (!result) {
     log.warn('Subscription customer not mapped to any profile', { profileId: profile.id, sessionId })
     return { success: false, reason: 'no_profile_match' as const }
