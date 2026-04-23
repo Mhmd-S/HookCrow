@@ -2,6 +2,8 @@ import type { SubscriptionPlan } from '~/types'
 
 const PLANS: readonly SubscriptionPlan[] = ['monthly', 'annual'] as const
 
+const log = createLogger('billing-checkout')
+
 export default defineEventHandler(async (event) => {
   const user = await requireAuth(event)
   const body = await readBody<{ plan: SubscriptionPlan }>(event)
@@ -34,10 +36,17 @@ export default defineEventHandler(async (event) => {
       metadata: { profile_id: profile.id }
     })
     customerId = customer.id
-    await supabase
+    const { error: updateErr } = await supabase
       .from('profiles')
       .update({ stripe_customer_id: customerId })
       .eq('id', profile.id)
+    if (updateErr) {
+      log.warn('Failed to persist stripe_customer_id on profile', {
+        profileId: profile.id,
+        customerId,
+        error: updateErr.message
+      })
+    }
   }
 
   const siteUrl = getSiteUrl()

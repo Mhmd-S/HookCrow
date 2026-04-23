@@ -1,6 +1,8 @@
 import Stripe from 'stripe'
 import type { SubscriptionPlan, SubscriptionStatus } from '~/types'
 
+const log = createLogger('stripe')
+
 let client: Stripe | null = null
 
 export function useServerStripe(): Stripe {
@@ -73,11 +75,38 @@ export async function syncSubscription(sub: Stripe.Subscription): Promise<SyncSu
   const supabase = useServerSupabase()
   const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id
 
-  const { data: profile } = await supabase
+  let { data: profile } = await supabase
     .from('profiles')
     .select('id, email, subscription_status, cancel_at_period_end')
     .eq('stripe_customer_id', customerId)
     .single()
+
+  // Fallback: the subscription carries the profile id in metadata (set by
+  // the checkout endpoint). Covers the case where stripe_customer_id wasn't
+  // persisted on the profile — we link the customer back now, so future
+  // webhook events resolve by customer id on the first lookup.
+  if (!profile) {
+    const metadataProfileId = typeof sub.metadata?.profile_id === 'string' ? sub.metadata.profile_id : null
+    if (metadataProfileId) {
+      const { data: byId } = await supabase
+        .from('profiles')
+        .select('id, email, subscription_status, cancel_at_period_end')
+        .eq('id', metadataProfileId)
+        .single()
+      if (byId) {
+        profile = byId
+        const { error: linkErr } = await supabase
+          .from('profiles')
+          .update({ stripe_customer_id: customerId })
+          .eq('id', byId.id)
+        if (linkErr) {
+          log.warn('Failed to backfill stripe_customer_id', { profileId: byId.id, customerId, error: linkErr.message })
+        } else {
+          log.info('Backfilled stripe_customer_id from subscription metadata', { profileId: byId.id, customerId })
+        }
+      }
+    }
+  }
 
   if (!profile) return null
 
