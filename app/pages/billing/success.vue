@@ -9,7 +9,13 @@ const { refreshProfile, isPro, authHeaders } = useAuth()
 
 const checking = ref(true)
 let attempts = 0
-const maxAttempts = 10
+const maxAttempts = 20
+
+interface SyncResponse {
+  success: boolean
+  status?: string
+  reason?: string
+}
 
 async function poll() {
   attempts += 1
@@ -21,18 +27,18 @@ async function poll() {
   setTimeout(poll, 1500)
 }
 
-async function trySyncFromSession(): Promise<boolean> {
+async function trySyncFromSession(): Promise<SyncResponse | null> {
   const sessionId = route.query.session_id
-  if (typeof sessionId !== 'string' || !sessionId) return false
+  if (typeof sessionId !== 'string' || !sessionId) return null
   try {
-    await $fetch('/api/stripe/sync-session', {
+    return await $fetch<SyncResponse>('/api/stripe/sync-session', {
       method: 'POST',
       body: { sessionId },
       headers: authHeaders()
     })
-    return true
-  } catch {
-    return false
+  } catch (err) {
+    console.error('[billing/success] sync-session failed', err)
+    return null
   }
 }
 
