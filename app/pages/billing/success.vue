@@ -5,8 +5,9 @@ useSeoMeta({
 })
 
 const route = useRoute()
-const { refreshProfile, isPro, authHeaders } = useAuth()
+const { profile, refreshProfile, isPro, authHeaders } = useAuth()
 
+const activated = ref(false)
 const checking = ref(true)
 let attempts = 0
 const maxAttempts = 20
@@ -21,6 +22,7 @@ async function poll() {
   attempts += 1
   await refreshProfile()
   if (isPro.value || attempts >= maxAttempts) {
+    activated.value = isPro.value
     checking.value = false
     return
   }
@@ -36,16 +38,30 @@ async function trySyncFromSession(): Promise<SyncResponse | null> {
       body: { sessionId },
       headers: authHeaders()
     })
-  } catch (err) {
-    console.error('[billing/success] sync-session failed', err)
+  } catch (err: any) {
+    console.error('[billing/success] sync-session failed', err?.data?.message || err?.message || err)
     return null
   }
 }
 
+const showSuccess = computed(() => activated.value || isPro.value)
+
 onMounted(async () => {
-  await trySyncFromSession()
+  const syncResult = await trySyncFromSession()
+
+  if (syncResult?.success && syncResult.status === 'active') {
+    if (profile.value) {
+      profile.value = { ...profile.value, subscription_status: 'active' }
+    }
+    activated.value = true
+    checking.value = false
+    refreshProfile()
+    return
+  }
+
   await refreshProfile()
   if (isPro.value) {
+    activated.value = true
     checking.value = false
     return
   }
@@ -55,13 +71,13 @@ onMounted(async () => {
 
 <template>
   <div class="max-w-xl mx-auto px-4 md:px-6 py-16 md:py-24 text-center">
-    <div v-if="checking && !isPro" class="space-y-4">
+    <div v-if="checking && !showSuccess" class="space-y-4">
       <UIcon name="i-ph-circle-notch" class="w-10 h-10 text-primary animate-spin mx-auto" />
       <h1 class="text-xl font-semibold">Activating your Pro subscription…</h1>
       <p class="text-muted text-sm">This usually takes a few seconds while Stripe confirms the payment.</p>
     </div>
 
-    <div v-else-if="isPro" class="space-y-4">
+    <div v-else-if="showSuccess" class="space-y-4">
       <UIcon name="i-ph-crown-simple-fill" class="w-12 h-12 text-primary mx-auto" />
       <h1 class="text-2xl font-bold">Welcome to Pro</h1>
       <p class="text-muted">You now have full access to every premium recipe.</p>
