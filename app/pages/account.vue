@@ -13,14 +13,29 @@ interface BillingStatus {
   subscription_status: SubscriptionStatus
   plan: SubscriptionPlan | null
   current_period_end: string | null
+  cancel_at_period_end: boolean
   is_pro: boolean
   has_customer: boolean
+}
+
+interface Invoice {
+  id: string
+  status: string | null
+  total: number | null
+  currency: string | null
+  created: string | null
+  number: string | null
+  hosted_invoice_url: string | null
+  invoice_pdf: string | null
 }
 
 const status = ref<BillingStatus | null>(null)
 const loading = ref(true)
 const actionLoading = ref(false)
 const error = ref<string | null>(null)
+
+const invoices = ref<Invoice[]>([])
+const invoicesLoading = ref(false)
 
 async function loadStatus() {
   loading.value = true
@@ -29,10 +44,25 @@ async function loadStatus() {
       headers: authHeaders()
     })
     status.value = data
+    if (data.has_customer) loadInvoices()
   } catch (err: any) {
     error.value = err?.data?.message || err?.message || 'Failed to load subscription'
   } finally {
     loading.value = false
+  }
+}
+
+async function loadInvoices() {
+  invoicesLoading.value = true
+  try {
+    const { data } = await $fetch<{ data: Invoice[] }>('/api/billing/invoices', {
+      headers: authHeaders()
+    })
+    invoices.value = data
+  } catch {
+    // Non-fatal: account page still renders without history.
+  } finally {
+    invoicesLoading.value = false
   }
 }
 
@@ -62,10 +92,38 @@ function formatDate(value: string | null) {
   return new Date(value).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
+function formatAmount(total: number | null, currency: string | null) {
+  if (total == null || !currency) return ''
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(total / 100)
+  } catch {
+    return `${(total / 100).toFixed(2)} ${currency.toUpperCase()}`
+  }
+}
+
+function invoiceStatusColor(s: string | null): 'success' | 'neutral' | 'error' | 'warning' {
+  if (s === 'paid') return 'success'
+  if (s === 'uncollectible' || s === 'void') return 'error'
+  if (s === 'open') return 'warning'
+  return 'neutral'
+}
+
+function invoiceStatusLabel(s: string | null): string {
+  if (!s) return ''
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 const statusLabel = computed(() => {
   const s = status.value?.subscription_status
   if (!s) return ''
   return s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')
+})
+
+const planLabel = computed(() => {
+  const p = status.value?.plan
+  if (p === 'annual') return 'Annual'
+  if (p === 'monthly') return 'Monthly'
+  return 'Pro'
 })
 
 const editingName = ref(false)
@@ -174,11 +232,25 @@ onMounted(loadStatus)
       <template v-else-if="status">
         <div v-if="status.is_pro" class="space-y-1 text-sm">
           <p class="text-default">
-            You're on the <strong>{{ status.plan === 'annual' ? 'Annual' : 'Monthly' }}</strong> plan.
+            You're on the <strong>{{ planLabel }}</strong> plan.
           </p>
-          <p v-if="status.current_period_end" class="text-muted">
+
+          <template v-if="status.cancel_at_period_end">
+            <p class="text-warning">
+              Your {{ planLabel }} plan ends on {{ formatDate(status.current_period_end) }}.
+            </p>
+            <p class="text-muted">
+              You'll keep access until then. Resume anytime from the billing portal.
+            </p>
+          </template>
+          <p v-else-if="status.current_period_end" class="text-muted">
             Renews on {{ formatDate(status.current_period_end) }}.
           </p>
+        </div>
+
+        <div v-else-if="status.subscription_status === 'past_due'" class="space-y-1 text-sm">
+          <p class="text-error">Payment failed.</p>
+          <p class="text-muted">Update your card in the billing portal to keep your access.</p>
         </div>
 
         <div v-else class="text-sm text-muted">
@@ -200,6 +272,55 @@ onMounted(loadStatus)
           </UButton>
         </div>
       </template>
+    </section>
+
+    <!-- Billing history -->
+    <section
+      v-if="status?.has_customer"
+      class="bg-default border border-default rounded-2xl p-6 space-y-4"
+    >
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-dimmed">Billing history</h2>
+
+      <div v-if="invoicesLoading" class="flex items-center gap-2 text-muted text-sm">
+        <UIcon name="i-ph-circle-notch" class="w-4 h-4 animate-spin" />
+        Loading…
+      </div>
+
+      <p v-else-if="invoices.length === 0" class="text-sm text-muted">No invoices yet.</p>
+
+      <ul v-else class="divide-y divide-default -mx-2">
+        <li
+          v-for="inv in invoices"
+          :key="inv.id"
+          class="flex items-center justify-between gap-3 px-2 py-3 text-sm"
+        >
+          <div class="min-w-0">
+            <p class="text-default">{{ formatDate(inv.created) }}</p>
+            <p v-if="inv.number" class="text-xs text-dimmed truncate">#{{ inv.number }}</p>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <span class="text-default tabular-nums">{{ formatAmount(inv.total, inv.currency) }}</span>
+            <UBadge
+              v-if="inv.status"
+              :color="invoiceStatusColor(inv.status)"
+              variant="subtle"
+              size="sm"
+            >
+              {{ invoiceStatusLabel(inv.status) }}
+            </UBadge>
+            <UButton
+              v-if="inv.hosted_invoice_url || inv.invoice_pdf"
+              :to="inv.hosted_invoice_url || inv.invoice_pdf || undefined"
+              target="_blank"
+              rel="noopener"
+              variant="ghost"
+              size="xs"
+              icon="i-ph-arrow-square-out"
+              aria-label="View invoice"
+            />
+          </div>
+        </li>
+      </ul>
     </section>
 
     <!-- Sign out -->
