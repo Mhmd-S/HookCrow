@@ -167,6 +167,12 @@ const avatarInitial = computed(() =>
       </template>
       <template v-else>
         <NuxtLink
+          to="/register"
+          class="inline-flex items-center h-9 px-3 md:px-4 rounded-full text-sm font-semibold text-default hover:bg-elevated transition-colors"
+        >
+          Pricing
+        </NuxtLink>
+        <NuxtLink
           to="/login"
           class="inline-flex items-center h-9 px-3 md:px-4 rounded-full text-sm font-semibold text-default hover:bg-elevated transition-colors"
         >

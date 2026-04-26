@@ -10,11 +10,17 @@ useSeoMeta({
 
 useCanonical()
 
-const { authHeaders, isPro } = useAuth()
+const { authHeaders, isPro, isAuthenticated } = useAuth()
+const router = useRouter()
 const loading = ref<SubscriptionPlan | null>(null)
 const error = ref<string | null>(null)
 
 async function subscribe(plan: SubscriptionPlan) {
+  if (!isAuthenticated.value) {
+    router.push('/register')
+    return
+  }
+
   loading.value = plan
   error.value = null
   try {
