@@ -6,7 +6,7 @@ const props = defineProps<{
   videos: Video[]
 }>()
 
-const { getVideoThumbnailUrl } = useVideos()
+const { getVideoThumbnailImgUrl } = useVideos()
 const router = useRouter()
 
 const searchQuery = ref('')
@@ -87,13 +87,15 @@ function submit() {
         :style="{ transform: `rotate(${-rot}deg)`, zIndex: 10 - i }"
       >
         <div class="relative aspect-9/16 bg-neutral-100">
-          <video
-            :src="getVideoThumbnailUrl(video.video_path)"
+          <img
+            v-if="video.thumbnail_path"
+            :src="getVideoThumbnailImgUrl(video.thumbnail_path)"
+            loading="lazy"
+            decoding="async"
             class="w-full h-full object-cover"
-            preload="metadata"
-            muted
-            playsinline
+            alt=""
           />
+          <div v-else class="w-full h-full bg-neutral-200" />
         </div>
       </div>
       <div
@@ -103,13 +105,15 @@ function submit() {
         :style="{ transform: `rotate(${-rot}deg)`, zIndex: 10 - i }"
       >
         <div class="relative aspect-9/16 bg-neutral-100">
-          <video
-            :src="getVideoThumbnailUrl(video.video_path)"
+          <img
+            v-if="video.thumbnail_path"
+            :src="getVideoThumbnailImgUrl(video.thumbnail_path)"
+            loading="lazy"
+            decoding="async"
             class="w-full h-full object-cover"
-            preload="metadata"
-            muted
-            playsinline
+            alt=""
           />
+          <div v-else class="w-full h-full bg-neutral-200" />
         </div>
       </div>
     </div>
@@ -123,13 +127,15 @@ function submit() {
         :style="{ transform: `rotate(${slot.rot})` }"
       >
         <div class="relative aspect-9/16 bg-neutral-100">
-          <video
-            :src="getVideoThumbnailUrl(video.video_path)"
+          <img
+            v-if="video.thumbnail_path"
+            :src="getVideoThumbnailImgUrl(video.thumbnail_path)"
+            loading="lazy"
+            decoding="async"
             class="w-full h-full object-cover"
-            preload="metadata"
-            muted
-            playsinline
+            alt=""
           />
+          <div v-else class="w-full h-full bg-neutral-200" />
         </div>
       </div>
     </div>

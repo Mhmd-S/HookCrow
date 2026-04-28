@@ -101,7 +101,7 @@ function clearCompleted() {
 }
 
 async function processItem(item: BulkItem) {
-  const { path, error: uploadErr } = await uploadVideoFile(item.file)
+  const { path, thumbnailPath, error: uploadErr } = await uploadVideoFile(item.file)
   if (uploadErr || !path) {
     item.status = 'error'
     item.error = uploadErr?.message ?? 'Failed to upload video'
@@ -110,6 +110,7 @@ async function processItem(item: BulkItem) {
 
   const { data, error: createErr } = await createVideo({
     video_path: path,
+    thumbnail_path: thumbnailPath || null,
     source_url: item.sourceUrl.trim() || null
   })
   if (createErr || !data) {

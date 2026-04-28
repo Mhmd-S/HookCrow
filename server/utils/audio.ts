@@ -138,3 +138,34 @@ export async function getVideoDuration(videoBuffer: Buffer): Promise<number> {
     }
   }
 }
+
+/**
+ * Extract first frame as JPEG thumbnail from video buffer
+ * Returns null if FFmpeg fails (gracefully degraded — video still uploads)
+ */
+export async function extractThumbnailFromVideo(videoBuffer: Buffer): Promise<Buffer | null> {
+  const tempDir = await mkdtemp(join(tmpdir(), 'thumb-'))
+  const inputPath = join(tempDir, 'input.mp4')
+  const outputPath = join(tempDir, 'thumb.jpg')
+
+  try {
+    await writeFile(inputPath, videoBuffer)
+
+    // Seek to 1s (skip black fade-in), extract 1 frame, scale to 400px width, JPEG quality 3
+    await execAsync(
+      `ffmpeg -ss 1 -i "${inputPath}" -vframes 1 -q:v 3 -vf "scale=400:-2" "${outputPath}" -y`,
+      { maxBuffer: 10 * 1024 * 1024 }
+    )
+
+    return await readFile(outputPath)
+  } catch {
+    return null
+  } finally {
+    try {
+      await unlink(inputPath)
+      await unlink(outputPath)
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+}

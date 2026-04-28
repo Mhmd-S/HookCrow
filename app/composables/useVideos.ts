@@ -60,19 +60,19 @@ export function useVideos() {
     }
   }
 
-  async function uploadVideoFile(file: File): Promise<{ path: string | null; error: Error | null }> {
+  async function uploadVideoFile(file: File): Promise<{ path: string | null; thumbnailPath: string | null; error: Error | null }> {
     try {
       const formData = new FormData()
       formData.append('file', file)
 
-      const { path } = await $fetch<{ path: string }>('/api/admin/videos/upload', {
+      const { path, thumbnailPath } = await $fetch<{ path: string; thumbnailPath?: string | null }>('/api/admin/videos/upload', {
         method: 'POST',
         body: formData,
         headers: authHeaders()
       })
-      return { path, error: null }
+      return { path, thumbnailPath: thumbnailPath || null, error: null }
     } catch (err) {
-      return { path: null, error: err as Error }
+      return { path: null, thumbnailPath: null, error: err as Error }
     }
   }
 
@@ -88,6 +88,12 @@ export function useVideos() {
     return `${getVideoUrl(path)}#t=0.1`
   }
 
+  function getVideoThumbnailImgUrl(path: string): string {
+    const config = useRuntimeConfig()
+    const supabaseUrl = config.public.supabaseUrl as string
+    return `${supabaseUrl}/storage/v1/object/public/videos/${path}`
+  }
+
   return {
     fetchVideos,
     fetchVideo,
@@ -96,6 +102,7 @@ export function useVideos() {
     deleteVideo,
     uploadVideoFile,
     getVideoUrl,
-    getVideoThumbnailUrl
+    getVideoThumbnailUrl,
+    getVideoThumbnailImgUrl
   }
 }

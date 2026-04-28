@@ -22,6 +22,13 @@ const backfillStats = ref<{ processed: number; remaining: number; errors: number
   errors: 0
 })
 
+const thumbBackfillRunning = ref(false)
+const thumbBackfillStats = ref<{ processed: number; remaining: number; errors: number }>({
+  processed: 0,
+  remaining: 0,
+  errors: 0
+})
+
 async function runBackfill() {
   if (backfillRunning.value) return
   backfillRunning.value = true
@@ -49,6 +56,36 @@ async function runBackfill() {
     error.value = err instanceof Error ? err.message : 'Backfill failed'
   } finally {
     backfillRunning.value = false
+  }
+}
+
+async function runThumbBackfill() {
+  if (thumbBackfillRunning.value) return
+  thumbBackfillRunning.value = true
+  thumbBackfillStats.value = { processed: 0, remaining: 0, errors: 0 }
+
+  try {
+    // Loop until remaining === 0 or 50 batches (videos take longer than embeddings)
+    for (let i = 0; i < 50; i++) {
+      const result = await $fetch<{ processed: number; remaining: number; errors: Array<{ id: string; error: string }> }>(
+        '/api/admin/generate-thumbnails',
+        {
+          method: 'POST',
+          body: { batchSize: 3 },
+          headers: authHeaders()
+        }
+      )
+      thumbBackfillStats.value = {
+        processed: thumbBackfillStats.value.processed + result.processed,
+        remaining: result.remaining,
+        errors: thumbBackfillStats.value.errors + result.errors.length
+      }
+      if (result.remaining === 0 || (result.processed === 0 && result.errors.length === 0)) break
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Thumbnail backfill failed'
+  } finally {
+    thumbBackfillRunning.value = false
   }
 }
 
@@ -191,6 +228,20 @@ const freeCount = computed(() => videos.value.filter(v => !v.is_premium).length)
             <template v-if="backfillRunning || backfillStats.processed > 0">
               <span class="text-xs text-muted">
                 ({{ backfillStats.processed }} done{{ backfillStats.remaining > 0 ? `, ${backfillStats.remaining} left` : '' }}{{ backfillStats.errors > 0 ? `, ${backfillStats.errors} err` : '' }})
+              </span>
+            </template>
+          </UButton>
+          <UButton
+            variant="ghost"
+            size="sm"
+            icon="i-ph-image"
+            :loading="thumbBackfillRunning"
+            @click="runThumbBackfill"
+          >
+            Backfill thumbnails
+            <template v-if="thumbBackfillRunning || thumbBackfillStats.processed > 0">
+              <span class="text-xs text-muted">
+                ({{ thumbBackfillStats.processed }} done{{ thumbBackfillStats.remaining > 0 ? `, ${thumbBackfillStats.remaining} left` : '' }}{{ thumbBackfillStats.errors > 0 ? `, ${thumbBackfillStats.errors} err` : '' }})
               </span>
             </template>
           </UButton>

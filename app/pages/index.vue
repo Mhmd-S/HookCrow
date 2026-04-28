@@ -59,6 +59,9 @@ const PRESETS: SliderPreset[] = [
   { title: 'Beauty & fashion', subtitle: 'DTC beauty and style product storytelling', tag: 'Beauty & Fashion', limit: 8 }
 ]
 
+const sliderSentinels = ref<(HTMLElement | null)[]>([])
+const sliderInView = ref<boolean[]>(PRESETS.map((_, i) => i === 0))
+
 const sliderVideos = ref<Video[][]>(PRESETS.map(() => []))
 const slidersLoading = ref(true)
 
@@ -66,6 +69,27 @@ onMounted(async () => {
   // Populate the hero's floating thumbnails. No filters — we just want a
   // visually varied sample of the library.
   loadBrowse()
+
+  // Set up intersection observers for lazy-mounting sliders below the fold
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        const idx = sliderSentinels.value.indexOf(entry.target as HTMLElement)
+        if (idx !== -1 && entry.isIntersecting) {
+          sliderInView.value[idx] = true
+          observer.unobserve(entry.target)
+        }
+      })
+    },
+    { rootMargin: '200px' }
+  )
+
+  // Observe all sentinels except the first (which is eager-loaded)
+  nextTick(() => {
+    sliderSentinels.value.forEach((el, idx) => {
+      if (idx > 0 && el) observer.observe(el)
+    })
+  })
 
   // Over-fetch per tag (3x the display limit) so we have buffer to drop
   // videos already claimed by higher-priority sliders without running out.
@@ -104,14 +128,19 @@ onMounted(async () => {
   <div class="max-w-7xl mx-auto px-4 md:px-6 py-8 space-y-12">
     <LandingHero :videos="videos" />
 
-    <LandingSearchSlider
+    <div
       v-for="(preset, i) in PRESETS"
       :key="preset.title"
-      :title="preset.title"
-      :subtitle="preset.subtitle"
-      :tag="preset.tag"
-      :videos="sliderVideos[i] || []"
-      :loading="slidersLoading"
-    />
+      :ref="el => { if (el) sliderSentinels[i] = el as HTMLElement }"
+    >
+      <LandingSearchSlider
+        v-if="sliderInView[i]"
+        :title="preset.title"
+        :subtitle="preset.subtitle"
+        :tag="preset.tag"
+        :videos="sliderVideos[i] || []"
+        :loading="slidersLoading"
+      />
+    </div>
   </div>
 </template>

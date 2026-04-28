@@ -1,3 +1,5 @@
+import { extractThumbnailFromVideo } from '~~/server/utils/audio'
+
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo']
 const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
 
@@ -68,5 +70,17 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  return { path: filePath }
+  let thumbnailPath: string | null = null
+  const thumbnailBuffer = await extractThumbnailFromVideo(file.data)
+  if (thumbnailBuffer) {
+    const thumbName = `thumbnails/${crypto.randomUUID()}.jpg`
+    const { error: thumbErr } = await supabase.storage
+      .from('videos')
+      .upload(thumbName, thumbnailBuffer, { contentType: 'image/jpeg', upsert: false })
+    if (!thumbErr) {
+      thumbnailPath = thumbName
+    }
+  }
+
+  return { path: filePath, thumbnailPath }
 })

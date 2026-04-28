@@ -65,7 +65,7 @@ async function handleSubmit() {
 
   try {
     // Step 1: Upload video file
-    const { path, error: uploadError } = await uploadVideoFile(videoFile.value)
+    const { path, thumbnailPath, error: uploadError } = await uploadVideoFile(videoFile.value)
     if (uploadError || !path) {
       throw new Error(uploadError?.message || 'Failed to upload video')
     }
@@ -73,6 +73,7 @@ async function handleSubmit() {
     // Create video record
     const { data, error: createError } = await createVideo({
       video_path: path,
+      thumbnail_path: thumbnailPath || null,
       source_url: form.source_url || null
     })
 
