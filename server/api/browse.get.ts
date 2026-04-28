@@ -16,7 +16,7 @@ async function fallbackBrowse(
 ) {
   let q = supabase
     .from('videos')
-    .select('id, title, creator_handle, platform, video_path, duration_seconds, logic_flow_id, semantic_tags, status, is_premium, created_at, logic_flow:logic_flows(id, name, description)', { count: 'exact' })
+    .select('id, title, creator_handle, platform, video_path, thumbnail_path, duration_seconds, logic_flow_id, semantic_tags, status, is_premium, created_at, logic_flow:logic_flows(id, name, description)', { count: 'exact' })
     .eq('is_published', true)
     .eq('status', 'complete')
     .order('updated_at', { ascending: false })
@@ -154,6 +154,7 @@ export default defineEventHandler(async (event) => {
     creator_handle: row.creator_handle,
     platform: row.platform,
     video_path: row.video_path,
+    thumbnail_path: row.thumbnail_path,
     duration_seconds: row.duration_seconds,
     logic_flow_id: row.logic_flow_id,
     semantic_tags: row.semantic_tags,

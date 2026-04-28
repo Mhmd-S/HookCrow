@@ -1,4 +1,5 @@
 import type { Video, VideoInsert, VideoUpdate, VideoWithSegments } from '~/types'
+import { extractThumbnailFromVideoFile } from '~/utils/videoThumbnail'
 
 export function useVideos() {
   const { authHeaders } = useAuth()
@@ -64,6 +65,13 @@ export function useVideos() {
     try {
       const formData = new FormData()
       formData.append('file', file)
+
+      // Extract thumbnail in the browser using <video> + canvas — works on
+      // serverless platforms (Vercel) where ffmpeg isn't available.
+      const thumbnailBlob = await extractThumbnailFromVideoFile(file)
+      if (thumbnailBlob) {
+        formData.append('thumbnail', thumbnailBlob, 'thumbnail.jpg')
+      }
 
       const { path, thumbnailPath } = await $fetch<{ path: string; thumbnailPath?: string | null }>('/api/admin/videos/upload', {
         method: 'POST',

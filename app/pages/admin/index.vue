@@ -28,6 +28,7 @@ const thumbBackfillStats = ref<{ processed: number; remaining: number; errors: n
   remaining: 0,
   errors: 0
 })
+const thumbBackfillMessage = ref<string | null>(null)
 
 async function runBackfill() {
   if (backfillRunning.value) return
@@ -63,6 +64,9 @@ async function runThumbBackfill() {
   if (thumbBackfillRunning.value) return
   thumbBackfillRunning.value = true
   thumbBackfillStats.value = { processed: 0, remaining: 0, errors: 0 }
+  thumbBackfillMessage.value = null
+
+  let firstResponse: { processed: number; remaining: number; errors: unknown[] } | null = null
 
   try {
     // Loop until remaining === 0 or 50 batches (videos take longer than embeddings)
@@ -75,6 +79,7 @@ async function runThumbBackfill() {
           headers: authHeaders()
         }
       )
+      if (i === 0) firstResponse = result
       thumbBackfillStats.value = {
         processed: thumbBackfillStats.value.processed + result.processed,
         remaining: result.remaining,
@@ -82,8 +87,17 @@ async function runThumbBackfill() {
       }
       if (result.remaining === 0 || (result.processed === 0 && result.errors.length === 0)) break
     }
+
+    const { processed, remaining, errors } = thumbBackfillStats.value
+    if (processed === 0 && errors === 0 && firstResponse?.remaining === 0) {
+      thumbBackfillMessage.value = 'All videos already have thumbnails — nothing to backfill.'
+    } else if (errors > 0 && processed === 0) {
+      thumbBackfillMessage.value = `Failed: ${errors} errors. Check server logs (FFmpeg may not be installed).`
+    } else {
+      thumbBackfillMessage.value = `Done: ${processed} thumbnails generated${errors > 0 ? `, ${errors} errors` : ''}${remaining > 0 ? `, ${remaining} still pending` : ''}.`
+    }
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Thumbnail backfill failed'
+    thumbBackfillMessage.value = err instanceof Error ? err.message : 'Thumbnail backfill failed'
   } finally {
     thumbBackfillRunning.value = false
   }
@@ -239,7 +253,7 @@ const freeCount = computed(() => videos.value.filter(v => !v.is_premium).length)
             @click="runThumbBackfill"
           >
             Backfill thumbnails
-            <template v-if="thumbBackfillRunning || thumbBackfillStats.processed > 0">
+            <template v-if="thumbBackfillRunning || thumbBackfillStats.processed > 0 || thumbBackfillStats.errors > 0">
               <span class="text-xs text-muted">
                 ({{ thumbBackfillStats.processed }} done{{ thumbBackfillStats.remaining > 0 ? `, ${thumbBackfillStats.remaining} left` : '' }}{{ thumbBackfillStats.errors > 0 ? `, ${thumbBackfillStats.errors} err` : '' }})
               </span>
@@ -326,6 +340,16 @@ const freeCount = computed(() => videos.value.filter(v => !v.is_premium).length)
 
       <!-- Error Alert -->
       <UAlert v-if="error" color="error" :title="error" class="mb-6" />
+
+      <!-- Thumbnail Backfill Result -->
+      <UAlert
+        v-if="thumbBackfillMessage"
+        :color="thumbBackfillStats.errors > 0 && thumbBackfillStats.processed === 0 ? 'error' : 'info'"
+        :title="thumbBackfillMessage"
+        :close-button="{ icon: 'i-ph-x', color: 'neutral', variant: 'link' }"
+        class="mb-6"
+        @close="thumbBackfillMessage = null"
+      />
 
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-20">

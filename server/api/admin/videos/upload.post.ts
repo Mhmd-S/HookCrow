@@ -71,7 +71,17 @@ export default defineEventHandler(async (event) => {
   }
 
   let thumbnailPath: string | null = null
-  const thumbnailBuffer = await extractThumbnailFromVideo(file.data)
+  let thumbnailBuffer: Buffer | null = null
+
+  // Prefer client-side thumbnail (works on Vercel serverless without FFmpeg)
+  const clientThumb = formData.find(f => f.name === 'thumbnail')
+  if (clientThumb?.data) {
+    thumbnailBuffer = clientThumb.data
+  } else {
+    // Fallback to server-side FFmpeg (local dev / non-serverless deployments)
+    thumbnailBuffer = await extractThumbnailFromVideo(file.data)
+  }
+
   if (thumbnailBuffer) {
     const thumbName = `thumbnails/${crypto.randomUUID()}.jpg`
     const { error: thumbErr } = await supabase.storage
