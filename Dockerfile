@@ -13,10 +13,9 @@ RUN pnpm build
 
 # Stage 2: runtime
 FROM node:22-slim
-# ffmpeg: required by server/utils/audio.ts (audio extraction + thumbnail frames)
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg curl ca-certificates \
-    && curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp \
-    && chmod a+rx /usr/local/bin/yt-dlp \
+# ffmpeg: required by server/utils/audio.ts (audio extraction + thumbnail frames).
+# TikTok fetch now uses a managed HTTP API (server/utils/tiktokDownload.ts) — no yt-dlp binary needed.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/.output ./.output
