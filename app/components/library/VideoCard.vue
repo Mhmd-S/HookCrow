@@ -14,9 +14,14 @@ const emit = defineEmits<{
   select: [video: Video]
 }>()
 
-const { getVideoUrl } = useVideos()
+const { getVideoUrl, getPosterUrl } = useVideos()
+
+const isEmbed = computed(() =>
+  !props.video.video_path && props.video.platform === 'TikTok' && !!props.video.source_url
+)
 
 const thumbnailUrl = computed(() => {
+  if (isEmbed.value) return getPosterUrl(props.video)
   if (!props.video.video_path) return null
   return getVideoUrl(props.video.video_path)
 })
@@ -49,8 +54,14 @@ const formattedDate = computed(() => {
       <div
         class="w-12 h-16 rounded bg-[var(--ui-bg-muted)] flex-shrink-0 overflow-hidden"
       >
+        <img
+          v-if="thumbnailUrl && isEmbed"
+          :src="thumbnailUrl"
+          class="w-full h-full object-cover"
+          alt=""
+        />
         <video
-          v-if="thumbnailUrl"
+          v-else-if="thumbnailUrl"
           :src="thumbnailUrl"
           class="w-full h-full object-cover"
           muted

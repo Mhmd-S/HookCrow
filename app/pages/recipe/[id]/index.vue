@@ -91,8 +91,15 @@ const fullRecipe = computed<VideoWithSegments | null>(() => (isLocked.value ? nu
 const lockedRecipe = computed<LockedRecipe | null>(() => (isLocked.value ? (recipe.value as LockedRecipe) : null))
 
 const videoUrl = computed(() =>
-  recipe.value ? getVideoUrl(recipe.value.video_path) : ''
+  recipe.value && recipe.value.video_path ? getVideoUrl(recipe.value.video_path) : ''
 )
+
+const isEmbed = computed(() =>
+  fullRecipe.value ? !fullRecipe.value.video_path && fullRecipe.value.platform === 'TikTok' && !!fullRecipe.value.source_url : false
+)
+
+const embedSourceUrl = computed(() => fullRecipe.value?.source_url ?? '')
+const embedThumbnailUrl = computed(() => fullRecipe.value?.thumbnail_url ?? undefined)
 
 const skeletalLogic = computed<SkeletalLogicAnalysis | null>(() =>
   fullRecipe.value?.skeletal_logic as unknown as SkeletalLogicAnalysis ?? null
@@ -133,7 +140,12 @@ function getVisualSegment(index: number): SegmentVisualAnalysis | null {
     <div v-else-if="fullRecipe" class="flex flex-col lg:flex-row gap-8 p-6 max-w-7xl mx-auto">
       <aside class="lg:w-86 shrink-0">
           <div class="lg:sticky lg:top-6 aspect-9/16 bg-black rounded-2xl overflow-hidden shadow-sm ring-1 ring-neutral-200">
-            <VideoPlayer ref="playerRef" :src="videoUrl" :segments="fullRecipe.segments"
+            <TikTokEmbed
+              v-if="isEmbed && embedSourceUrl"
+              :url="embedSourceUrl"
+              :poster="embedThumbnailUrl"
+            />
+            <VideoPlayer v-else ref="playerRef" :src="videoUrl" :segments="fullRecipe.segments"
               @segment-change="(s: Segment | null) => currentSegment = s" />
           </div>
       </aside>

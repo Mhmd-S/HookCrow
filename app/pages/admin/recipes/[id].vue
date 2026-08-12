@@ -475,9 +475,16 @@ onBeforeUnmount(() => {
 
 onMounted(loadVideo)
 
-const videoUrl = computed(() =>
-  video.value ? getVideoUrl(video.value.video_path) : ''
+const isEmbed = computed(() =>
+  video.value ? !video.value.video_path && video.value.platform === 'TikTok' && !!video.value.source_url : false
 )
+
+const videoUrl = computed(() =>
+  video.value && video.value.video_path ? getVideoUrl(video.value.video_path) : ''
+)
+
+const embedSourceUrl = computed(() => video.value?.source_url ?? '')
+const embedThumbnailUrl = computed(() => video.value?.thumbnail_url ?? undefined)
 
 const videoTitle = computed(() => video.value?.title || video.value?.creator_handle || 'Untitled Video')
 </script>
@@ -693,6 +700,9 @@ const videoTitle = computed(() => video.value?.title || video.value?.creator_han
           <VideoPreviewPanel
             :video-src="videoUrl"
             :segments="segments"
+            :is-embed="isEmbed"
+            :source-url="embedSourceUrl"
+            :thumbnail-url="embedThumbnailUrl"
             @update:segments="(s: Segment[]) => (segments = s)"
             @update:current-time="handleTimeUpdate"
             @update:duration="handleDurationChange"

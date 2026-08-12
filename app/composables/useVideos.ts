@@ -102,6 +102,10 @@ export function useVideos() {
     return `${supabaseUrl}/storage/v1/object/public/videos/${path}`
   }
 
+  function getPosterUrl(video: { thumbnail_url?: string | null; video_path?: string | null }): string | null {
+    return video.thumbnail_url ?? (video.video_path ? getVideoUrl(video.video_path) : null)
+  }
+
   return {
     fetchVideos,
     fetchVideo,
@@ -111,6 +115,7 @@ export function useVideos() {
     uploadVideoFile,
     getVideoUrl,
     getVideoThumbnailUrl,
-    getVideoThumbnailImgUrl
+    getVideoThumbnailImgUrl,
+    getPosterUrl
   }
 }

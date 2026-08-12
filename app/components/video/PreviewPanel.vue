@@ -6,11 +6,17 @@ interface Props {
   segments: Segment[]
   currentTime?: number
   duration?: number
+  isEmbed?: boolean
+  sourceUrl?: string
+  thumbnailUrl?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   currentTime: 0,
-  duration: 0
+  duration: 0,
+  isEmbed: false,
+  sourceUrl: '',
+  thumbnailUrl: undefined
 })
 
 const emit = defineEmits<{
@@ -52,10 +58,12 @@ function handleDurationChange(duration: number) {
 }
 
 function handleSeek(time: number) {
+  if (props.isEmbed) return // no-op for embed rows
   playerRef.value?.seek(time)
 }
 
 function handleSegmentSeek(segment: Segment) {
+  if (props.isEmbed) return
   playerRef.value?.seek(segment.start_time)
 }
 
@@ -71,7 +79,13 @@ defineExpose({
 
 <template>
   <div class="h-full flex flex-col">
+    <TikTokEmbed
+      v-if="isEmbed && sourceUrl"
+      :url="sourceUrl"
+      :poster="thumbnailUrl"
+    />
     <VideoPlayer
+      v-else
       ref="playerRef"
       :src="videoSrc"
       :segments="segments"

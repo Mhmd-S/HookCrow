@@ -85,7 +85,8 @@ export interface Database {
           creator_handle: string | null
           platform: string | null
           source_url: string | null
-          video_path: string
+          video_path: string | null
+          thumbnail_url: string | null
           duration_seconds: number | null
           logic_flow_id: string | null
           script_raw: string | null
@@ -110,7 +111,8 @@ export interface Database {
           creator_handle?: string | null
           platform?: string | null
           source_url?: string | null
-          video_path: string
+          video_path?: string | null
+          thumbnail_url?: string | null
           duration_seconds?: number | null
           logic_flow_id?: string | null
           script_raw?: string | null
@@ -135,7 +137,8 @@ export interface Database {
           creator_handle?: string | null
           platform?: string | null
           source_url?: string | null
-          video_path?: string
+          video_path?: string | null
+          thumbnail_url?: string | null
           duration_seconds?: number | null
           logic_flow_id?: string | null
           script_raw?: string | null
