@@ -1,6 +1,3 @@
-import type { Json } from '~/types/database'
-import { readFile } from 'node:fs/promises'
-
 interface IngestUrlRequest {
   url: string
 }
@@ -10,8 +7,6 @@ interface IngestUrlResponse {
     videoId: string
   }
 }
-
-const log = createLogger('ingest-url')
 
 export default defineEventHandler(async (event): Promise<IngestUrlResponse> => {
   const user = await requireAdmin(event)
@@ -34,89 +29,16 @@ export default defineEventHandler(async (event): Promise<IngestUrlResponse> => {
 
   const url = rawUrl
 
-  // Fetch oEmbed metadata (best-effort)
-  const { authorName, thumbnailUrl, title } = await fetchTikTokOembed(url)
+  const result = await ingestTikTokUrl(url, {
+    supabase: useServerSupabase(),
+    ai: useServerGemini(),
+    config: useRuntimeConfig(),
+    createdBy: user.id,
+  })
 
-  // Insert video row
-  const supabase = useServerSupabase()
-  const { data: video, error: insertError } = await supabase
-    .from('videos')
-    .insert({
-      platform: 'TikTok',
-      source_url: url,
-      creator_handle: authorName ?? null,
-      thumbnail_url: thumbnailUrl ?? null,
-      title: title ?? null,
-      video_path: null,
-      status: 'draft',
-      created_by: user.id,
-    })
-    .select()
-    .single()
-
-  if (insertError || !video) {
-    log.error('Failed to insert video row', insertError, { url })
-    throw createError({ statusCode: 500, message: 'Failed to create video record' })
+  if (result.status === 'failed') {
+    throw createError({ statusCode: 500, message: result.error || 'Ingestion failed' })
   }
 
-  const videoId = video.id
-  log.info('Video row created', { videoId, url })
-
-  // Download temp mp4 → analyze → cleanup
-  let downloadResult: Awaited<ReturnType<typeof downloadTikTokToTemp>> | null = null
-
-  try {
-    downloadResult = await downloadTikTokToTemp(url)
-    const videoBuffer = await readFile(downloadResult.path)
-
-    log.info('Downloaded TikTok video to temp', { videoId, sizeMB: (videoBuffer.length / (1024 * 1024)).toFixed(2) })
-
-    const result = await analyzeVideoBuffer({
-      ai: useServerGemini(),
-      supabase,
-      config: useRuntimeConfig(),
-      videoId,
-      videoBuffer,
-      durationSeconds: undefined,
-      existingTitle: null,
-    })
-
-    log.info('Analysis complete', { videoId, ...result })
-
-    // Mark as complete
-    await supabase
-      .from('videos')
-      .update({ status: 'complete' })
-      .eq('id', videoId)
-
-    return { data: { videoId } }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Ingestion failed'
-    log.error('Ingestion failed', err, { videoId, url })
-
-    // Set visual_analysis to failed state (same shape as process-video failure)
-    const failedAt = new Date().toISOString()
-    try {
-      await supabase
-        .from('videos')
-        .update({
-          visual_analysis: {
-            status: 'failed',
-            analyzed_at: failedAt,
-            error: message,
-            overview: null,
-            segments: null,
-          } as unknown as Json,
-        })
-        .eq('id', videoId)
-    } catch (updateErr) {
-      log.error('Failed to update visual_analysis state', updateErr, { videoId })
-    }
-
-    throw createError({ statusCode: 500, message })
-  } finally {
-    if (downloadResult) {
-      await downloadResult.cleanup()
-    }
-  }
+  return { data: { videoId: result.videoId! } }
 })

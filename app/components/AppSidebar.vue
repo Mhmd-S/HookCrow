@@ -77,6 +77,15 @@ watch(() => route.path, () => {
           <UIcon name="i-ph-users" class="w-4 h-4 shrink-0" />
           <span>Users</span>
         </NuxtLink>
+
+        <NuxtLink
+          to="/admin/discovery"
+          class="flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors"
+          :class="isActive('/admin/discovery') ? 'bg-neutral-100 font-medium text-default' : 'text-muted hover:bg-neutral-50'"
+        >
+          <UIcon name="i-ph-magnifying-glass" class="w-4 h-4 shrink-0" />
+          <span>Discovery</span>
+        </NuxtLink>
       </template>
     </div>
 

@@ -220,6 +220,73 @@ export interface Database {
           created_at?: string
         }
       }
+      discovery_sources: {
+        Row: {
+          id: string
+          type: string
+          value: string
+          enabled: boolean
+          max_per_run: number
+          cadence_hours: number
+          last_run_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          type: string
+          value: string
+          enabled?: boolean
+          max_per_run?: number
+          cadence_hours?: number
+          last_run_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          type?: string
+          value?: string
+          enabled?: boolean
+          max_per_run?: number
+          cadence_hours?: number
+          last_run_at?: string | null
+          created_at?: string
+        }
+      }
+      discovery_runs: {
+        Row: {
+          id: string
+          source_id: string | null
+          started_at: string | null
+          finished_at: string | null
+          found: number | null
+          ingested: number | null
+          skipped: number | null
+          failed: number | null
+          error: string | null
+        }
+        Insert: {
+          id?: string
+          source_id?: string | null
+          started_at?: string | null
+          finished_at?: string | null
+          found?: number | null
+          ingested?: number | null
+          skipped?: number | null
+          failed?: number | null
+          error?: string | null
+        }
+        Update: {
+          id?: string
+          source_id?: string | null
+          started_at?: string | null
+          finished_at?: string | null
+          found?: number | null
+          ingested?: number | null
+          skipped?: number | null
+          failed?: number | null
+          error?: string | null
+        }
+      }
     }
   }
 }
