@@ -32,5 +32,8 @@
       "protobufjs",
       "vue-demi"
     ]
+  },
+  "devDependencies": {
+    "@iconify-json/ph": "^1.2.2"
   }
 }

@@ -1,8 +1,7 @@
 <script setup lang="ts">
-const { isAuthenticated, isAdmin, isPro, profile, logout, loading } = useAuth()
+const { isAuthenticated, isPro, profile, logout, loading } = useAuth()
 const router = useRouter()
 const route = useRoute()
-const { toggle } = useSidebarState()
 
 const searchQuery = ref((route.query.q as string) || '')
 const aiSearchLoading = useState('ai-search-loading', () => false)
@@ -37,64 +36,8 @@ const avatarInitial = computed(() =>
 </script>
 
 <template>
-  <!-- Admin header (kept compact with sidebar toggle) -->
-  <header v-if="isAdmin" class="h-14 flex items-center justify-between px-4 border-b border-default bg-default shrink-0">
-    <div class="flex items-center gap-2 shrink-0">
-      <UButton
-        class="lg:hidden"
-        variant="ghost"
-        size="sm"
-        icon="i-ph-list"
-        @click="toggle"
-      />
-    </div>
-    <div class="flex-1 flex justify-center px-4">
-      <form class="w-full max-w-md" @submit.prevent="handleSearch">
-        <UInput
-          v-model="searchQuery"
-          placeholder="Search for anything..."
-          :icon="aiSearchLoading ? 'i-ph-circle-notch' : 'i-ph-magnifying-glass'"
-          size="sm"
-          class="w-full"
-          :ui="aiSearchLoading ? { leadingIcon: 'animate-spin' } : {}"
-          @keydown.enter="handleSearch"
-        />
-      </form>
-    </div>
-    <div class="flex items-center gap-2 shrink-0">
-      <template v-if="loading">
-        <UIcon name="i-ph-circle-notch" class="w-4 h-4 animate-spin text-muted" />
-      </template>
-      <template v-else-if="isAuthenticated">
-        <UButton
-          v-if="!isPro"
-          to="/pricing"
-          size="sm"
-          icon="i-ph-crown-simple"
-          color="primary"
-        >
-          Upgrade
-        </UButton>
-        <UBadge v-else size="xs" color="primary" variant="solid" class="gap-1">
-          <UIcon name="i-ph-crown-simple-fill" class="w-3 h-3" />
-          Pro
-        </UBadge>
-        <UButton to="/account" variant="ghost" size="sm">
-          {{ profile?.display_name || profile?.email }}
-        </UButton>
-        <UButton variant="ghost" size="sm" @click="handleLogout">
-          Log out
-        </UButton>
-      </template>
-      <template v-else>
-        <UButton to="/login" variant="ghost" size="sm">Log in</UButton>
-        <UButton to="/register" size="sm">Sign up</UButton>
-      </template>
-    </div>
-  </header>
-
   <!-- Mobbin-style header (users + logged-out) -->
-  <header v-else class="h-16 flex items-center gap-3 md:gap-6 px-4 md:px-6 bg-muted shrink-0">
+  <header class="h-16 flex items-center gap-3 md:gap-6 px-4 md:px-6 bg-muted shrink-0">
     <!-- Left: Logo + primary nav -->
     <div class="flex items-center gap-6 shrink-0">
       <NuxtLink to="/" class="flex items-center gap-2" aria-label="Hookcrow — home">

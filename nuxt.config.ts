@@ -31,6 +31,16 @@ export default defineNuxtConfig({
   ui: {
     colorMode: false
   },
+  // @iconify-json/ph is installed so i-ph-* resolve locally instead of via a
+  // runtime Iconify API call. `scan` bundles only the icons actually used in
+  // source, which keeps the whole 4.5MB collection out of the server chunk.
+  icon: {
+    clientBundle: {
+      scan: true,
+      sizeLimitKb: 512
+    },
+    serverBundle: false
+  },
   runtimeConfig: {
     geminiApiKey: process.env.GEMINI_API_KEY,
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,

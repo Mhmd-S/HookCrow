@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { UserRole } from '~/types'
 
-definePageMeta({ middleware: ['admin'] })
+definePageMeta({ layout: 'admin', middleware: ['admin'] })
 
 interface AdminUser {
   id: string

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Video, VideoStatus, LogicFlow, VideoUpdate } from '~/types'
 
-definePageMeta({ middleware: ['admin'] })
+definePageMeta({ layout: 'admin', middleware: ['admin'] })
 
 const { fetchVideos, deleteVideo, updateVideo, getVideoUrl } = useVideos()
 const { logicFlows, fetchLogicFlows } = useLogicFlows()

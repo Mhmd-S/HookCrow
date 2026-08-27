@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ middleware: ['admin'] })
+definePageMeta({ layout: 'admin', middleware: ['admin'] })
 
 interface DiscoverySource {
   id: string
@@ -42,6 +42,8 @@ const adding = ref(false)
 const sourceRunning = ref<Record<string, boolean>>({})
 const runAllRunning = ref(false)
 const runResults = ref<RunSummary[] | null>(null)
+
+const SOURCE_TYPES = ['hashtag', 'profile', 'search'] as const
 
 const typePlaceholder: Record<string, string> = {
   hashtag: 'e.g. "saasmarketing" (no #)',
@@ -166,17 +168,12 @@ function formatDate(val: string | null) {
   })
 }
 
-function summaryFor(sourceId: string): RunSummary | undefined {
-  return runResults.value?.find(r => r.sourceId === sourceId)
-}
-
-function runSummaryBadge(found: number, ingested: number, skipped: number, failed: number) {
-  const parts: string[] = []
-  if (found > 0) parts.push(`${found}f`)
-  if (ingested > 0) parts.push(`${ingested}i`)
-  if (skipped > 0) parts.push(`${skipped}s`)
-  if (failed > 0) parts.push(`${failed}e`)
-  return parts.join(' / ') || '0'
+function labelForSource(sourceId: string): string {
+  const source = sources.value.find(s => s.id === sourceId)
+  if (!source) return sourceId.slice(0, 8)
+  return source.type === 'hashtag' ? `#${source.value}`
+    : source.type === 'profile' ? `@${source.value}`
+      : source.value
 }
 
 function openAddModal() {
@@ -223,15 +220,15 @@ onMounted(loadSources)
 
     <!-- Loading -->
     <div v-if="loading" class="flex items-center justify-center py-20">
-      <UIcon name="i-ph-circle-notch" class="w-8 h-8 animate-spin text-neutral-400" />
+      <UIcon name="i-ph-circle-notch" class="w-8 h-8 animate-spin text-dimmed" />
     </div>
 
     <!-- Empty -->
     <div
       v-else-if="sources.length === 0 && !runResults"
-      class="bg-white border border-dashed border-default rounded-lg py-16 px-6 text-center"
+      class="bg-default border border-dashed border-default rounded-lg py-16 px-6 text-center"
     >
-      <UIcon name="i-ph-magnifying-glass" class="w-10 h-10 text-neutral-300 mx-auto mb-3" />
+      <UIcon name="i-ph-magnifying-glass" class="w-10 h-10 text-dimmed mx-auto mb-3" />
       <p class="text-muted text-sm mb-4">No sources yet — add one to start discovering.</p>
       <UButton icon="i-ph-plus" @click="openAddModal">Add source</UButton>
     </div>
@@ -239,9 +236,9 @@ onMounted(loadSources)
     <!-- Run results panel -->
     <div
       v-if="runResults && runResults.length > 0"
-      class="mb-6 bg-neutral-50 border border-default rounded-lg overflow-hidden"
+      class="mb-6 bg-muted border border-default rounded-lg overflow-hidden"
     >
-      <div class="px-4 py-2 border-b border-default bg-neutral-100">
+      <div class="px-4 py-2 border-b border-default bg-elevated">
         <span class="text-xs font-semibold uppercase tracking-wider text-dimmed">Latest run results</span>
       </div>
       <div class="divide-y divide-default">
@@ -250,12 +247,12 @@ onMounted(loadSources)
           :key="r.sourceId"
           class="px-4 py-2 text-sm flex items-center gap-3"
         >
-          <span class="font-mono text-xs text-muted w-9 shrink-0">{{ r.sourceId.slice(0, 8) }}</span>
-          <span class="font-medium">{{ runSummaryBadge(r.found, r.ingested, r.skipped, r.failed) }}</span>
-          <span v-if="r.found > 0" class="text-success text-xs">{{ r.ingested }} ingested</span>
-          <span v-if="r.skipped > 0" class="text-warning text-xs">{{ r.skipped }} skipped</span>
-          <span v-if="r.failed > 0" class="text-error text-xs">{{ r.failed }} failed</span>
-          <span v-if="r.error" class="text-error text-xs truncate ml-auto">{{ r.error }}</span>
+          <span class="font-medium truncate min-w-0 flex-1">{{ labelForSource(r.sourceId) }}</span>
+          <span class="text-muted text-xs shrink-0">{{ r.found }} found</span>
+          <span v-if="r.ingested > 0" class="text-success text-xs shrink-0">{{ r.ingested }} ingested</span>
+          <span v-if="r.skipped > 0" class="text-warning text-xs shrink-0">{{ r.skipped }} skipped</span>
+          <span v-if="r.failed > 0" class="text-error text-xs shrink-0">{{ r.failed }} failed</span>
+          <span v-if="r.error" class="text-error text-xs truncate shrink-0">{{ r.error }}</span>
         </div>
       </div>
     </div>
@@ -263,10 +260,10 @@ onMounted(loadSources)
     <!-- Sources table -->
     <div
       v-if="sources.length > 0"
-      class="bg-white border border-default rounded-lg overflow-hidden"
+      class="bg-default border border-default rounded-lg overflow-hidden"
     >
       <table class="w-full text-sm">
-        <thead class="bg-neutral-50 text-left text-xs uppercase tracking-wider text-dimmed">
+        <thead class="bg-muted text-left text-xs uppercase tracking-wider text-dimmed">
           <tr>
             <th class="px-4 py-2">Type</th>
             <th class="px-4 py-2">Value</th>
@@ -336,8 +333,7 @@ onMounted(loadSources)
             <label class="block text-sm font-medium mb-1.5">Type</label>
             <USelectMenu
               v-model="addForm.type"
-              :options="['hashtag', 'profile', 'search']"
-              value-attribute="value"
+              :items="SOURCE_TYPES"
               class="w-full"
             />
           </div>
