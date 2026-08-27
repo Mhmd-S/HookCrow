@@ -105,9 +105,9 @@ function scrollBy(direction: 1 | -1) {
         v-else
         :key="video.id"
         :to="`/recipe/${video.id}`"
-        class="group shrink-0 w-40 rounded-xl aspect-9/16 md:w-44 snap-start block"
+        class="group shrink-0 w-40 md:w-44 snap-start block"
       >
-        <div class="relative rounded-xl overflow-hidden bg-neutral-100 ring-1 ring-default shadow-sm group-hover:shadow-lg group-hover:-translate-y-0.5 transition-all">
+        <div class="relative aspect-9/16 rounded-xl overflow-hidden bg-neutral-100 ring-1 ring-default shadow-sm group-hover:shadow-lg group-hover:-translate-y-0.5 transition-all">
           <img
             v-if="video.thumbnail_path || video.thumbnail_url"
             :src="video.thumbnail_path ? getVideoThumbnailImgUrl(video.thumbnail_path) : video.thumbnail_url!"

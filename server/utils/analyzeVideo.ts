@@ -73,7 +73,7 @@ export async function analyzeVideoBuffer(opts: {
 Write a concise title (max 80 chars, no quotes, no trailing punctuation) that captures the specific angle, hook, or product claim — not a generic description. Examples of the style: "The $0 Cold DM That Booked 12 Calls", "Why Your Landing Page Hook Loses in 3 Seconds", "POV: Launching a SaaS With Zero Audience". Avoid filler like "Video about…", emojis.
 
 === TASK 2: TRANSCRIPT + STRUCTURE ===
-Transcribe spoken words. Then segment the video using these labels: Hook, Bridge, Value, Proof, CTA.
+Transcribe spoken words. If the video has little or no speech (music/text-overlay driven, common in lo-fi ads), use the ON-SCREEN TEXT OVERLAYS as the script instead: put the overlay text (in display order) in the transcript, and segment by when each overlay appears. Never return an empty transcript for a video that has readable on-screen text. Then segment the video using these labels: Hook, Bridge, Value, Proof, CTA.
 - Hook: opening attention grab (usually 0-5s)
 - Bridge: transition building context or agitating the problem
 - Value: main content/solution/information
@@ -225,27 +225,42 @@ If no speech is detected, still return segments based on visual structure with e
   let analysis: CombinedResponse
   const geminiOp = log.timedOp('Gemini combined analysis', { videoId, model: 'gemini-2.5-flash' })
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: {
-        role: 'user',
-        parts: [
-          { fileData: { fileUri: uploadedFile.uri, mimeType: uploadedFile.mimeType } },
-          { text: prompt }
-        ]
-      },
-      config: {
-        temperature: 0.3,
-        responseMimeType: 'application/json',
-        maxOutputTokens: 32768
-      }
-    })
+    // Malformed/truncated JSON is Gemini's most common failure here; one
+    // regeneration usually parses, so retry the call once on parse errors.
+    const generateAndParse = async (): Promise<CombinedResponse> => {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: {
+          role: 'user',
+          parts: [
+            { fileData: { fileUri: uploadedFile.uri, mimeType: uploadedFile.mimeType } },
+            { text: prompt }
+          ]
+        },
+        config: {
+          temperature: 0.3,
+          responseMimeType: 'application/json',
+          maxOutputTokens: 32768
+        }
+      })
 
-    const content = response.text
-    if (!content) throw new Error('No response from AI')
+      const content = response.text
+      if (!content) throw new Error('No response from AI')
 
-    log.info('Gemini response received', { videoId, responseLength: content.length })
-    analysis = JSON.parse(content) as CombinedResponse
+      log.info('Gemini response received', { videoId, responseLength: content.length })
+      return JSON.parse(content) as CombinedResponse
+    }
+
+    try {
+      analysis = await generateAndParse()
+    } catch (parseErr) {
+      if (!(parseErr instanceof SyntaxError)) throw parseErr
+      log.warn('Gemini returned malformed JSON — retrying once', {
+        videoId,
+        error: parseErr.message
+      })
+      analysis = await generateAndParse()
+    }
 
     geminiOp.done({
       logicFlowName: analysis.logicFlowName,

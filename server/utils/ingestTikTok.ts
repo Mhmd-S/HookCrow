@@ -86,6 +86,12 @@ export async function ingestTikTokUrl(
     downloadResult = await downloadTikTokToTemp(url)
     const videoBuffer = await readFile(downloadResult.path)
 
+    // tikwm sometimes returns a ~120KB error payload instead of the mp4;
+    // Gemini then fails file processing. Fail fast with a clear reason.
+    if (videoBuffer.length < 100 * 1024) {
+      throw new Error(`Download too small (${(videoBuffer.length / 1024).toFixed(0)}KB) — resolver returned a stub, not the video`)
+    }
+
     log.info('Downloaded TikTok video to temp', { videoId, sizeMB: (videoBuffer.length / (1024 * 1024)).toFixed(2) })
 
     await analyzeVideoBuffer({
@@ -119,23 +125,13 @@ export async function ingestTikTokUrl(
     const message = err instanceof Error ? err.message : 'Ingestion failed'
     log.error('Ingestion failed', err, { videoId, url })
 
-    // Set visual_analysis to failed state
-    const failedAt = new Date().toISOString()
+    // Remove the row: a failed ingest has no analysis worth keeping, and a
+    // lingering draft would dedup-block this URL from ever being retried.
     try {
-      await deps.supabase
-        .from('videos')
-        .update({
-          visual_analysis: {
-            status: 'failed',
-            analyzed_at: failedAt,
-            error: message,
-            overview: null,
-            segments: null,
-          } as unknown as Json,
-        })
-        .eq('id', videoId)
-    } catch (updateErr) {
-      log.error('Failed to update visual_analysis state', updateErr, { videoId })
+      await deps.supabase.from('videos').delete().eq('id', videoId)
+      log.info('Rolled back video row after failed ingest', { videoId, url })
+    } catch (deleteErr) {
+      log.error('Failed to roll back video row', deleteErr, { videoId })
     }
 
     return { status: 'failed', videoId, error: message }
