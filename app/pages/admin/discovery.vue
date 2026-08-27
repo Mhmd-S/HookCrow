@@ -3,7 +3,7 @@ definePageMeta({ layout: 'admin', middleware: ['admin'] })
 
 interface DiscoverySource {
   id: string
-  type: 'hashtag' | 'profile' | 'search'
+  type: 'hashtag' | 'profile' | 'search' | 'creative_center'
   value: string
   enabled: boolean
   max_per_run: number
@@ -30,7 +30,7 @@ const error = ref<string | null>(null)
 // Add-source modal
 const showAddModal = ref(false)
 const addForm = reactive({
-  type: 'hashtag' as 'hashtag' | 'profile' | 'search',
+  type: 'creative_center' as 'hashtag' | 'profile' | 'search' | 'creative_center',
   value: '',
   max_per_run: 15,
   cadence_hours: 24,
@@ -43,12 +43,20 @@ const sourceRunning = ref<Record<string, boolean>>({})
 const runAllRunning = ref(false)
 const runResults = ref<RunSummary[] | null>(null)
 
-const SOURCE_TYPES = ['hashtag', 'profile', 'search'] as const
+const SOURCE_TYPES = ['creative_center', 'profile', 'hashtag', 'search'] as const
 
 const typePlaceholder: Record<string, string> = {
+  creative_center: 'keyword, or leave empty for top ads overall',
   hashtag: 'e.g. "saasmarketing" (no #)',
-  profile: 'e.g. "garyvee"',
+  profile: 'e.g. "drinkag1"',
   search: 'e.g. "cold email hook"',
+}
+
+const typeHint: Record<string, string> = {
+  creative_center: 'TikTok\'s own Top Ads, ranked by CTR. Videos are hosted by us so they play inline.',
+  hashtag: 'Organic posts carrying the hashtag. Noisy — prefer niche tags.',
+  profile: 'Every recent post from one account. Embedded, not hosted.',
+  search: 'Organic search results. Least predictable.',
 }
 
 async function loadSources() {
@@ -178,7 +186,7 @@ function labelForSource(sourceId: string): string {
 
 function openAddModal() {
   addError.value = null
-  addForm.type = 'hashtag'
+  addForm.type = 'creative_center'
   addForm.value = ''
   addForm.max_per_run = 15
   addForm.cadence_hours = 24
@@ -283,7 +291,9 @@ onMounted(loadSources)
               </UBadge>
             </td>
             <!-- Value -->
-            <td class="px-4 py-3 font-medium">{{ source.value }}</td>
+            <td class="px-4 py-3 font-medium">
+              {{ source.value || (source.type === 'creative_center' ? 'Top ads (all)' : '—') }}
+            </td>
             <!-- Cadence -->
             <td class="px-4 py-3 text-muted">{{ source.cadence_hours }}</td>
             <!-- Max/run -->
@@ -336,6 +346,7 @@ onMounted(loadSources)
               :items="SOURCE_TYPES"
               class="w-full"
             />
+            <p class="text-xs text-muted mt-1.5">{{ typeHint[addForm.type] }}</p>
           </div>
           <div>
             <label class="block text-sm font-medium mb-1.5">Value</label>
@@ -376,7 +387,7 @@ onMounted(loadSources)
           </UButton>
           <UButton
             :loading="adding"
-            :disabled="adding || !addForm.value.trim()"
+            :disabled="adding || (addForm.type !== 'creative_center' && !addForm.value.trim())"
             @click="handleAdd"
           >
             Add

@@ -79,7 +79,7 @@ defineExpose({
 
 <template>
   <div class="h-full flex flex-col">
-    <TikTokEmbed
+    <VideoTikTokEmbed
       v-if="isEmbed && sourceUrl"
       :url="sourceUrl"
       :poster="thumbnailUrl"

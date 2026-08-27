@@ -8,8 +8,11 @@ export default defineEventHandler(async (event) => {
     cadence_hours?: number
   }>(event)
 
-  const type = validateEnum(body?.type, 'type', ['hashtag', 'profile', 'search'] as const)
-  const value = validateString(body?.value, 'value', { minLength: 1, maxLength: 200 })
+  const type = validateEnum(body?.type, 'type', ['hashtag', 'profile', 'search', 'creative_center'] as const)
+  // Creative Center's value is an optional keyword — empty means "top ads overall".
+  const value = type === 'creative_center'
+    ? sanitizeString(String(body?.value ?? '')).trim().slice(0, 200)
+    : validateString(body?.value, 'value', { minLength: 1, maxLength: 200 })
 
   const supabase = useServerSupabase()
 

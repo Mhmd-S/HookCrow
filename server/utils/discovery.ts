@@ -80,26 +80,43 @@ export async function runDiscovery(opts: {
     let runError: string | undefined
 
     try {
-      const urls = await discoverTikTokUrls(
-        { type: source.type as 'hashtag' | 'profile' | 'search', value: source.value },
-        source.max_per_run ?? 10,
-        apifyToken ?? '',
-      )
-      found = urls.length
+      // Creative Center returns ranked ADS with expiring signed urls, so it
+      // has its own discovery + ingest pair; everything else is organic TikTok.
+      const isCreativeCenter = source.type === 'creative_center'
 
-      for (const url of urls) {
+      const work: Array<() => Promise<IngestResult>> = isCreativeCenter
+        ? (await discoverCreativeCenterAds(
+            { value: source.value },
+            source.max_per_run ?? 10,
+            apifyToken ?? '',
+          )).map((ad) => () => ingestCreativeCenterAd(ad, {
+            supabase,
+            ai,
+            config,
+            createdBy: null,
+            publishGate: true,
+          }))
+        : (await discoverTikTokUrls(
+            { type: source.type as 'hashtag' | 'profile' | 'search', value: source.value },
+            source.max_per_run ?? 10,
+            apifyToken ?? '',
+          )).map((url) => () => ingestTikTokUrl(url, {
+            supabase,
+            ai,
+            config,
+            createdBy: null,
+            publishGate: true,
+          }))
+
+      found = work.length
+
+      for (const run of work) {
         if (ingestedThisRun >= dailyCap) {
           log.info('Daily cap reached, stopping', { dailyCap, sourceId: source.id })
           break
         }
 
-        const result = await ingestTikTokUrl(url, {
-          supabase,
-          ai,
-          config,
-          createdBy: null,
-          publishGate: true,
-        })
+        const result = await run()
 
         if (result.status === 'ingested') {
           ingested++

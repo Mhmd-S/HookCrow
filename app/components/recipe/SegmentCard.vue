@@ -8,189 +8,136 @@ const props = defineProps<{
   skeletalLogicSegment: SkeletalLogicSegmentAnalysis | null
   visualSegment?: SegmentVisualAnalysis | null
   active?: boolean
+  seekable?: boolean
 }>()
 
 const emit = defineEmits<{
   seek: [time: number]
 }>()
 
-const segmentThemes: Record<string, { accent: string; bg: string; text: string; dot: string; badge: string }> = {
-  Hook: { accent: 'ring-red-500/30', bg: 'bg-red-50', text: 'text-red-600', dot: 'bg-red-500', badge: 'error' },
-  Bridge: { accent: 'ring-amber-500/30', bg: 'bg-amber-50', text: 'text-amber-600', dot: 'bg-amber-500', badge: 'warning' },
-  Value: { accent: 'ring-emerald-500/30', bg: 'bg-emerald-50', text: 'text-emerald-600', dot: 'bg-emerald-500', badge: 'success' },
-  Proof: { accent: 'ring-blue-500/30', bg: 'bg-blue-50', text: 'text-blue-600', dot: 'bg-blue-500', badge: 'info' },
-  CTA: { accent: 'ring-violet-500/30', bg: 'bg-violet-50', text: 'text-violet-600', dot: 'bg-violet-500', badge: 'secondary' }
+const segmentThemes: Record<string, { rail: string; text: string; chipBg: string }> = {
+  Hook: { rail: 'bg-red-500', text: 'text-red-600', chipBg: 'bg-red-50' },
+  Bridge: { rail: 'bg-yellow-500', text: 'text-yellow-600', chipBg: 'bg-yellow-50' },
+  Value: { rail: 'bg-green-500', text: 'text-green-600', chipBg: 'bg-green-50' },
+  Proof: { rail: 'bg-blue-500', text: 'text-blue-600', chipBg: 'bg-blue-50' },
+  CTA: { rail: 'bg-purple-500', text: 'text-purple-600', chipBg: 'bg-purple-50' }
 }
-
-const fallbackTheme = { accent: 'ring-neutral-500/30', bg: 'bg-neutral-50', text: 'text-neutral-600', dot: 'bg-neutral-400', badge: 'neutral' }
-
+const fallbackTheme = { rail: 'bg-neutral-400', text: 'text-neutral-600', chipBg: 'bg-neutral-50' }
 const theme = computed(() => segmentThemes[props.segment.label] || fallbackTheme)
 
 function formatTime(seconds: number): string {
   if (seconds == null || isNaN(seconds)) return '0s'
-  const totalSeconds = Math.round(seconds * 10) / 10
-  if (totalSeconds < 60) {
-    return `${totalSeconds}s`
-  }
-  const m = Math.floor(totalSeconds / 60)
-  const s = Math.floor(totalSeconds % 60)
+  const t = Math.round(seconds * 10) / 10
+  if (t < 60) return `${t}s`
+  const m = Math.floor(t / 60)
+  const s = Math.floor(t % 60)
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
 const timeRange = computed(() => {
   const start = formatTime(props.segment.start_time)
   const end = formatTime(props.segment.end_time)
-  if (start === end) return start
-  return `${start} – ${end}`
+  return start === end ? start : `${start} – ${end}`
 })
 
-const userToggled = ref(false)
-const manualOpen = ref(false)
-const open = computed(() => userToggled.value ? manualOpen.value : !!props.active)
-function toggle() {
-  manualOpen.value = !open.value
-  userToggled.value = true
-}
-watch(() => props.active, () => {
-  userToggled.value = false
-})
+const transcript = computed(() => (props.segment.transcript_raw || '').trim())
+const blueprint = computed(() => (props.segment.script_blueprint || '').trim())
 
-const hasVisual = computed(() => {
+// Silent segments (no speech): the visual notes ARE the content, not a footer.
+const visualNotes = computed(() => {
   const v = props.visualSegment
-  if (!v) return false
-  return Boolean(
-    v.camera_movements?.length ||
-    v.shot_types?.length ||
-    v.color_grading?.dominant_colors?.length ||
-    v.color_grading?.mood ||
-    v.color_grading?.style ||
-    v.scene_composition ||
-    v.text_overlays?.items?.length ||
-    v.transitions ||
-    v.visual_pacing ||
-    v.detected_visual_tags?.length
-  )
+  if (!v) return []
+  const notes: Array<{ label: string; text: string }> = []
+  if (v.text_overlays?.items?.length) {
+    notes.push({ label: 'On-screen text', text: v.text_overlays.items.map(t => `“${t.text}”`).join(' · ') })
+  }
+  if (v.scene_composition) notes.push({ label: 'Shot', text: v.scene_composition })
+  if (v.transitions?.type) {
+    notes.push({ label: 'Transition', text: v.transitions.description ? `${v.transitions.type} — ${v.transitions.description}` : v.transitions.type })
+  }
+  if (v.visual_pacing) notes.push({ label: 'Pacing', text: v.visual_pacing })
+  return notes
 })
 
 const copied = ref(false)
 function copyBlueprint() {
-  if (!props.segment.script_blueprint) return
-  navigator.clipboard.writeText(props.segment.script_blueprint)
+  if (!blueprint.value) return
+  navigator.clipboard.writeText(blueprint.value)
   copied.value = true
   setTimeout(() => (copied.value = false), 2000)
 }
 </script>
 
 <template>
-  <div
-    class="group relative rounded-xl bg-white ring-1 ring-neutral-200/80 hover:ring-2 transition-all duration-200"
-    :class="theme.accent"
+  <article
+    :id="`seg-${segment.id}`"
+    class="relative flex rounded-xl bg-default ring-1 transition-shadow scroll-mt-24"
+    :class="active ? 'ring-2 ring-accented shadow-md' : 'ring-default'"
   >
-    <!-- Header -->
-    <button
-      type="button"
-      class="w-full flex items-center gap-3 px-3 py-2 text-left"
-      :disabled="!segment.script_blueprint && !hasVisual"
-      @click="toggle"
-    >
-      <span
-        class="text-[10px] font-mono tabular-nums text-neutral-300 w-5 shrink-0"
-      >
-        {{ String(segmentIndex + 1).padStart(2, '0') }}
-      </span>
-      <span class="inline-flex h-1.5 w-1.5 rounded-full shrink-0" :class="theme.dot" />
-      <span
-        class="text-[11px] font-medium tracking-wide uppercase shrink-0"
-        :class="theme.text"
-      >
-        {{ segment.label }}
-      </span>
-      <span class="text-[11px] text-neutral-800 font-bold tabular-nums shrink-0">{{ timeRange }}</span>
-      <p
-        v-if="skeletalLogicSegment?.goal"
-        class="flex-1 min-w-0 text-[13px] text-neutral-600 truncate"
-        :title="skeletalLogicSegment.goal"
-      >
-        {{ skeletalLogicSegment.goal }}
-      </p>
-      <UIcon
-        v-if="segment.script_blueprint || hasVisual"
-        name="i-ph-caret-right"
-        class="w-3 h-3 text-neutral-400 shrink-0 transition-transform duration-200"
-        :class="open ? 'rotate-90' : ''"
-      />
-      <UButton
-        icon="i-ph-play-circle"
-        size="xs"
-        variant="ghost"
-        color="neutral"
-        class="shrink-0"
-        @click.stop="emit('seek', segment.start_time)"
-      />
-    </button>
+    <!-- Color rail: same hue as this segment's block in the structure bar -->
+    <div class="w-1 shrink-0 rounded-l-xl" :class="theme.rail" />
 
-    <div
-      v-if="segment.script_blueprint || hasVisual"
-      class="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
-      :class="open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
-    >
-      <div class="overflow-hidden min-h-0">
-        <div
-          v-if="segment.script_blueprint"
-          class="px-3 pb-3 pt-1 border-t border-neutral-100"
+    <div class="flex-1 min-w-0 p-4 space-y-3">
+      <!-- Header -->
+      <header class="flex items-center gap-2 flex-wrap">
+        <span
+          class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider"
+          :class="[theme.text, theme.chipBg]"
         >
-          <div class="relative">
-            <div
-              class="font-mono text-[13px] leading-relaxed bg-neutral-50/80 rounded-lg p-3 ring-1 ring-neutral-100 whitespace-pre-wrap text-neutral-600"
-              v-html="highlightPlaceholders(segment.script_blueprint)"
-            />
-            <UButton
-              :icon="copied ? 'i-ph-check' : 'i-ph-copy-simple'"
-              size="xs"
-              variant="ghost"
-              color="neutral"
-              class="absolute top-1.5 right-1.5"
-              :class="copied ? 'text-emerald-500!' : ''"
-              :aria-label="copied ? 'Copied' : 'Copy script'"
-              @click.stop="copyBlueprint"
-            />
-          </div>
+          {{ segment.label }}
+        </span>
+        <component
+          :is="seekable ? 'button' : 'span'"
+          class="text-xs tabular-nums text-muted"
+          :class="seekable ? 'hover:text-default hover:underline cursor-pointer' : ''"
+          v-bind="seekable ? { type: 'button', 'aria-label': `Play from ${timeRange}` } : {}"
+          @click="seekable && emit('seek', segment.start_time)"
+        >
+          {{ timeRange }}
+        </component>
+        <p v-if="skeletalLogicSegment?.goal" class="flex-1 min-w-0 text-xs text-dimmed truncate" :title="skeletalLogicSegment.goal">
+          {{ skeletalLogicSegment.goal }}
+        </p>
+      </header>
+
+      <!-- Two lanes: what runs in the ad, and the reusable version -->
+      <div v-if="transcript || blueprint" class="grid gap-3" :class="transcript && blueprint ? 'md:grid-cols-2' : ''">
+        <div v-if="transcript">
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-dimmed mb-1.5">What they say</p>
+          <blockquote class="text-sm leading-relaxed text-toned">
+            “{{ transcript }}”
+          </blockquote>
         </div>
-
-        <div
-          v-if="hasVisual && visualSegment"
-          class="px-3 pb-3 pt-1 space-y-2 text-[12px] text-neutral-600"
-          :class="!segment.script_blueprint ? 'border-t border-neutral-100' : ''"
-        >
-          <!-- <div v-if="visualSegment.text_overlays?.items?.length">
-            <span class="text-[10px] uppercase tracking-wide text-neutral-700 font-bold">Text overlays</span>
-            <ul class="mt-1 space-y-0.5">
-              <li v-for="(t, i) in visualSegment.text_overlays.items" :key="i">
-                <span class="font-medium">“{{ t.text }}”</span>
-                <span v-if="t.style || t.position" class="text-neutral-400">
-                  — {{ [t.style, t.position].filter(Boolean).join(', ') }}
-                </span>
-              </li>
-            </ul>
-          </div> -->
-
-          <div v-if="visualSegment.transitions">
-            <span class="text-[10px] uppercase tracking-wide text-neutral-700 font-bold">Transition</span>
-            <span class="ml-1.5">{{ visualSegment.transitions.type }}</span>
-            <span v-if="visualSegment.transitions.description" class="text-neutral-400"> — {{ visualSegment.transitions.description }}</span>
-          </div>
-
-          <div v-if="visualSegment.visual_pacing">
-            <span class="text-[10px] uppercase tracking-wide text-neutral-700 font-bold">Pacing</span>
-            <span class="ml-1.5">{{ visualSegment.visual_pacing }}</span>
-          </div>
-
-          <div v-if="visualSegment.scene_composition" class="text-neutral-500">
-            <span class="text-[10px] uppercase tracking-wide text-neutral-700 font-bold">Composition</span>
-            <span class="ml-1.5">{{ visualSegment.scene_composition }}</span>
-          </div>
+        <div v-if="blueprint" class="relative">
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-dimmed mb-1.5">Make it yours</p>
+          <div
+            class="font-mono text-[13px] leading-relaxed bg-muted rounded-lg p-3 pr-9 ring-1 ring-default whitespace-pre-wrap text-toned"
+            v-html="highlightPlaceholders(blueprint)"
+          />
+          <UButton
+            :icon="copied ? 'i-ph-check' : 'i-ph-copy-simple'"
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            class="absolute top-6 right-1.5"
+            :class="copied ? 'text-success!' : ''"
+            :aria-label="copied ? 'Copied' : 'Copy this segment'"
+            @click="copyBlueprint"
+          />
         </div>
       </div>
+
+      <!-- Silent segment: visuals carry it -->
+      <div v-if="visualNotes.length" class="space-y-1" :class="transcript || blueprint ? 'pt-2 border-t border-muted' : ''">
+        <p v-for="note in visualNotes" :key="note.label" class="text-xs text-muted leading-relaxed">
+          <span class="font-semibold text-dimmed uppercase tracking-wide text-[10px]">{{ note.label }}</span>
+          <span class="ml-1.5">{{ note.text }}</span>
+        </p>
+      </div>
+
+      <p v-if="!transcript && !blueprint && !visualNotes.length" class="text-xs text-dimmed italic">
+        No script for this segment — it plays visually.
+      </p>
     </div>
-  </div>
+  </article>
 </template>

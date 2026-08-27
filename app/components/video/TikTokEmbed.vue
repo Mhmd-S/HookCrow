@@ -19,7 +19,12 @@ const embedSrc = computed(() => {
 </script>
 
 <template>
-  <div class="w-full h-full flex items-center justify-center bg-black rounded-lg overflow-hidden">
+  <!-- Poster underlay: TikTok's player boots slowly (and not at all in some
+       privacy contexts); the thumbnail keeps the frame from sitting black. -->
+  <div
+    class="w-full h-full flex items-center justify-center bg-black bg-cover bg-center rounded-lg overflow-hidden"
+    :style="poster ? { backgroundImage: `url(${poster})` } : undefined"
+  >
     <!-- TikTok embed iframe -->
     <iframe
       v-if="embedSrc"

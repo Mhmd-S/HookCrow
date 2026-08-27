@@ -20,8 +20,9 @@ const LOFI_STYLES = new Set<string>([
 ])
 
 // A discovered video is "lo-fi" if the AI rated it low/medium production quality,
-// OR it carries a lo-fi/UGC style tag. Used only when publishGate is on (discovery).
-function isLoFiVideo(row: { visual_analysis: Json | null; semantic_tags: string[] | null } | null): boolean {
+// OR it carries a lo-fi/UGC style tag. Used by both ingest paths when publishGate
+// is on (discovery).
+export function isLoFiVideo(row: { visual_analysis: Json | null; semantic_tags: string[] | null } | null): boolean {
   if (!row) return false
   const pq = (row.visual_analysis as { overview?: { production_quality?: string } } | null)?.overview?.production_quality
   if (pq === 'low' || pq === 'medium') return true
