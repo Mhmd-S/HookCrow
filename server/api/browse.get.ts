@@ -16,7 +16,7 @@ async function fallbackBrowse(
 ) {
   let q = supabase
     .from('videos')
-    .select('id, title, creator_handle, platform, video_path, thumbnail_path, duration_seconds, logic_flow_id, semantic_tags, status, is_premium, created_at, logic_flow:logic_flows(id, name, description)', { count: 'exact' })
+    .select('id, title, creator_handle, platform, video_path, thumbnail_path, thumbnail_url, duration_seconds, logic_flow_id, semantic_tags, status, is_premium, created_at, logic_flow:logic_flows(id, name, description)', { count: 'exact' })
     .eq('is_published', true)
     .eq('status', 'complete')
     .order('updated_at', { ascending: false })
@@ -148,6 +148,18 @@ export default defineEventHandler(async (event) => {
     rows = rows.filter((r: any) => !r.is_premium).slice(0, effectiveLimit)
   }
 
+  // The search_videos RPC predates videos.thumbnail_url (embed rows' only
+  // poster). Merge it in with one batched query rather than a DB migration.
+  const thumbUrlById = new Map<string, string | null>()
+  const idsMissingThumb = rows.filter((r: any) => !r.thumbnail_path && r.thumbnail_url === undefined).map((r: any) => r.id)
+  if (idsMissingThumb.length > 0) {
+    const { data: thumbRows } = await supabase
+      .from('videos')
+      .select('id, thumbnail_url')
+      .in('id', idsMissingThumb)
+    for (const t of thumbRows || []) thumbUrlById.set(t.id, t.thumbnail_url)
+  }
+
   const videos = rows.map((row: any) => ({
     id: row.id,
     title: row.title,
@@ -155,6 +167,7 @@ export default defineEventHandler(async (event) => {
     platform: row.platform,
     video_path: row.video_path,
     thumbnail_path: row.thumbnail_path,
+    thumbnail_url: row.thumbnail_url ?? thumbUrlById.get(row.id) ?? null,
     duration_seconds: row.duration_seconds,
     logic_flow_id: row.logic_flow_id,
     semantic_tags: row.semantic_tags,

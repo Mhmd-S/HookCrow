@@ -55,12 +55,23 @@ function formatDuration(seconds: number | null): string | null {
       >
         <div class="relative aspect-9/16 bg-neutral-100">
           <video
+            v-if="video.video_path"
             :src="getVideoUrl(video.video_path)"
             class="w-full h-full object-cover"
             preload="metadata"
             muted
             playsinline
           />
+          <img
+            v-else-if="video.thumbnail_url"
+            :src="video.thumbnail_url"
+            class="w-full h-full object-cover"
+            loading="lazy"
+            alt=""
+          >
+          <div v-else class="w-full h-full flex items-center justify-center">
+            <UIcon name="i-ph-film-strip" class="w-10 h-10 text-dimmed" />
+          </div>
           <div
             class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
           >

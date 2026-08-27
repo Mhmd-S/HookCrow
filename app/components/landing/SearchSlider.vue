@@ -109,8 +109,8 @@ function scrollBy(direction: 1 | -1) {
       >
         <div class="relative rounded-xl overflow-hidden bg-neutral-100 ring-1 ring-default shadow-sm group-hover:shadow-lg group-hover:-translate-y-0.5 transition-all">
           <img
-            v-if="video.thumbnail_path"
-            :src="getVideoThumbnailImgUrl(video.thumbnail_path)"
+            v-if="video.thumbnail_path || video.thumbnail_url"
+            :src="video.thumbnail_path ? getVideoThumbnailImgUrl(video.thumbnail_path) : video.thumbnail_url!"
             loading="lazy"
             decoding="async"
             class="w-full h-full object-cover"

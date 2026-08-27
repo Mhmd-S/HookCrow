@@ -243,6 +243,7 @@ function formatDuration(seconds: number | null): string | null {
       >
         <div class="relative aspect-9/16 bg-neutral-100">
           <video
+            v-if="video.video_path"
             :src="getVideoUrl(video.video_path)"
             class="w-full h-full object-cover"
             :class="{ 'blur-md scale-110': isLocked(video) }"
@@ -250,6 +251,17 @@ function formatDuration(seconds: number | null): string | null {
             muted
             playsinline
           />
+          <img
+            v-else-if="video.thumbnail_url"
+            :src="video.thumbnail_url"
+            class="w-full h-full object-cover"
+            :class="{ 'blur-md scale-110': isLocked(video) }"
+            loading="lazy"
+            alt=""
+          >
+          <div v-else class="w-full h-full flex items-center justify-center">
+            <UIcon name="i-ph-film-strip" class="w-10 h-10 text-dimmed" />
+          </div>
           <div
             v-if="isLocked(video)"
             class="absolute inset-0 bg-black/40 flex items-center justify-center"

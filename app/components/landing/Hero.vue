@@ -88,8 +88,8 @@ function submit() {
       >
         <div class="relative aspect-9/16 bg-neutral-100">
           <img
-            v-if="video.thumbnail_path"
-            :src="getVideoThumbnailImgUrl(video.thumbnail_path)"
+            v-if="video.thumbnail_path || video.thumbnail_url"
+            :src="video.thumbnail_path ? getVideoThumbnailImgUrl(video.thumbnail_path) : video.thumbnail_url!"
             loading="lazy"
             decoding="async"
             class="w-full h-full object-cover"
@@ -106,8 +106,8 @@ function submit() {
       >
         <div class="relative aspect-9/16 bg-neutral-100">
           <img
-            v-if="video.thumbnail_path"
-            :src="getVideoThumbnailImgUrl(video.thumbnail_path)"
+            v-if="video.thumbnail_path || video.thumbnail_url"
+            :src="video.thumbnail_path ? getVideoThumbnailImgUrl(video.thumbnail_path) : video.thumbnail_url!"
             loading="lazy"
             decoding="async"
             class="w-full h-full object-cover"
@@ -128,8 +128,8 @@ function submit() {
       >
         <div class="relative aspect-9/16 bg-neutral-100">
           <img
-            v-if="video.thumbnail_path"
-            :src="getVideoThumbnailImgUrl(video.thumbnail_path)"
+            v-if="video.thumbnail_path || video.thumbnail_url"
+            :src="video.thumbnail_path ? getVideoThumbnailImgUrl(video.thumbnail_path) : video.thumbnail_url!"
             loading="lazy"
             decoding="async"
             class="w-full h-full object-cover"

@@ -1,4 +1,4 @@
-const PUBLIC_EXACT = new Set(['/', '/search', '/login', '/register', '/pricing', '/terms', '/privacy', '/auth/callback'])
+const PUBLIC_EXACT = new Set(['/', '/search', '/login', '/register', '/pricing', '/terms', '/privacy', '/contact', '/auth/callback'])
 
 function isPublic(path: string): boolean {
   if (PUBLIC_EXACT.has(path)) return true
