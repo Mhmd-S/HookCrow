@@ -5,7 +5,9 @@ useSeoMeta({
   title: 'Pricing',
   description: 'Go Pro to unlock every recipe — full breakdowns, script blueprints, and every premium template. Monthly or annual, cancel anytime.',
   ogTitle: 'Pricing · Hookcrow',
-  ogDescription: 'Go Pro to unlock every recipe — full breakdowns and script blueprints.'
+  ogDescription: 'Go Pro to unlock every recipe — full breakdowns and script blueprints.',
+  twitterTitle: 'Pricing · Hookcrow',
+  twitterDescription: 'Go Pro to unlock every recipe — full breakdowns and script blueprints.'
 })
 
 useCanonical()

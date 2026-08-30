@@ -14,7 +14,7 @@ export default defineEventHandler((event) => {
     'Disallow: /billing/',
     'Disallow: /login',
     'Disallow: /register',
-    'Disallow: /recipe/',
+
     'Disallow: /api/',
     '',
     `Sitemap: ${siteUrl}/sitemap.xml`,

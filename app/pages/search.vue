@@ -11,7 +11,9 @@ useSeoMeta({
   title: 'Browse marketing videos',
   description: 'Browse short-form marketing videos and find hooks, bridges, and CTAs from real creators across every category.',
   ogTitle: 'Browse marketing videos · Hookcrow',
-  ogDescription: 'A creative reference library of short-form marketing videos.'
+  ogDescription: 'A creative reference library of short-form marketing videos.',
+  twitterTitle: 'Browse marketing videos · Hookcrow',
+  twitterDescription: 'A creative reference library of short-form marketing videos.'
 })
 
 useCanonical()
@@ -257,7 +259,7 @@ function formatDuration(seconds: number | null): string | null {
             class="w-full h-full object-cover"
             :class="{ 'blur-md scale-110': isLocked(video) }"
             loading="lazy"
-            alt=""
+            :alt="video.title || `Recipe by ${video.creator_handle || 'creator'}`"
           >
           <div v-else class="w-full h-full flex items-center justify-center">
             <UIcon name="i-ph-film-strip" class="w-10 h-10 text-dimmed" />

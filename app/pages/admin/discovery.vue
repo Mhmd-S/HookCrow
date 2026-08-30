@@ -1,6 +1,11 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: ['admin'] })
 
+useSeoMeta({
+  title: 'Discovery Sources',
+  robots: 'noindex,nofollow'
+})
+
 interface DiscoverySource {
   id: string
   type: 'hashtag' | 'profile' | 'search' | 'creative_center'

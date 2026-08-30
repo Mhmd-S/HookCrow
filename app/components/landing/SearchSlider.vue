@@ -115,7 +115,7 @@ function scrollBy(direction: 1 | -1) {
             decoding="async"
             class="w-full h-full object-cover"
             :class="{ 'blur-md scale-110': isLocked(video) }"
-            alt=""
+            :alt="video.title || `Video by ${video.creator_handle || 'creator'}`"
           />
           <div
             v-else

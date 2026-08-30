@@ -67,7 +67,7 @@ function formatDuration(seconds: number | null): string | null {
             :src="video.thumbnail_url"
             class="w-full h-full object-cover"
             loading="lazy"
-            alt=""
+            :alt="video.title || `Recipe by ${video.creator_handle || 'creator'}`"
           >
           <div v-else class="w-full h-full flex items-center justify-center">
             <UIcon name="i-ph-film-strip" class="w-10 h-10 text-dimmed" />

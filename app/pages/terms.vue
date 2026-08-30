@@ -2,7 +2,10 @@
 useSeoMeta({
   title: 'Terms of Service',
   description: 'Hookcrow terms of service — the rules for using our video-anatomy template library.',
-  ogTitle: 'Terms of Service · Hookcrow'
+  ogTitle: 'Terms of Service · Hookcrow',
+  ogDescription: 'Hookcrow terms of service — the rules for using our video-anatomy template library.',
+  twitterTitle: 'Terms of Service · Hookcrow',
+  twitterDescription: 'Hookcrow terms of service — the rules for using our video-anatomy template library.'
 })
 
 useCanonical()

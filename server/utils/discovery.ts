@@ -12,6 +12,11 @@ export interface RunSummary {
 export async function runDiscovery(opts: {
   onlyDue?: boolean
   sourceId?: string
+  // Cap sources handled in one invocation. Ingest is fully serial — each video
+  // is a sequential download plus a Gemini upload+poll — so an uncapped run over
+  // many due sources will outlive any HTTP timeout. The cron ticks often and
+  // takes a few sources each time instead.
+  maxSources?: number
 } = {}): Promise<RunSummary[]> {
   const supabase = useServerSupabase()
   const config = useRuntimeConfig()
@@ -38,12 +43,20 @@ export async function runDiscovery(opts: {
   // Filter by due-ness unless explicitly told not to (run.post sets onlyDue=false)
   const shouldCheckDue = opts.onlyDue !== false
   const now = Date.now()
-  const sources = shouldCheckDue
+  const due = shouldCheckDue
     ? rows.filter((s) => {
         if (!s.last_run_at) return true
         return now - Date.parse(s.last_run_at) >= (s.cadence_hours ?? 24) * 3600_000
       })
     : rows
+
+  // Oldest last_run_at first so a capped run rotates through every source
+  // instead of starving the tail of the list.
+  const sources = opts.maxSources && opts.maxSources > 0
+    ? [...due]
+        .sort((a, b) => Date.parse(a.last_run_at ?? '1970-01-01') - Date.parse(b.last_run_at ?? '1970-01-01'))
+        .slice(0, opts.maxSources)
+    : due
 
   if (sources.length === 0) {
     log.info('No sources to run')

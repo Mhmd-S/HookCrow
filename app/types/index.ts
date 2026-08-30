@@ -30,10 +30,16 @@ export interface LockedRecipe {
   description: string | null
   creator_handle: string | null
   platform: string | null
-  video_path: string
+  video_path: string | null
   duration_seconds: number | null
   semantic_tags: string[] | null
   overview_teaser: string | null
+  // Public metadata — kept on the locked shape so crawlers still get a real
+  // og:image and Article dates for a gated recipe.
+  thumbnail_path: string | null
+  thumbnail_url: string | null
+  created_at: string | null
+  updated_at: string | null
   locked: true
   reason: LockedReason
 }

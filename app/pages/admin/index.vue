@@ -3,6 +3,11 @@ import type { Video, VideoStatus, LogicFlow, VideoUpdate } from '~/types'
 
 definePageMeta({ layout: 'admin', middleware: ['admin'] })
 
+useSeoMeta({
+  title: 'Admin Dashboard',
+  robots: 'noindex,nofollow'
+})
+
 const { fetchVideos, deleteVideo, updateVideo, getVideoUrl } = useVideos()
 const { logicFlows, fetchLogicFlows } = useLogicFlows()
 const { authHeaders } = useAuth()

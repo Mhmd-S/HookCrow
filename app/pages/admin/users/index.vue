@@ -3,6 +3,11 @@ import type { UserRole } from '~/types'
 
 definePageMeta({ layout: 'admin', middleware: ['admin'] })
 
+useSeoMeta({
+  title: 'Users',
+  robots: 'noindex,nofollow'
+})
+
 interface AdminUser {
   id: string
   email: string

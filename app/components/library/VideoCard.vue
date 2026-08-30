@@ -58,7 +58,7 @@ const formattedDate = computed(() => {
           v-if="thumbnailUrl && isEmbed"
           :src="thumbnailUrl"
           class="w-full h-full object-cover"
-          alt=""
+          :alt="video.title || `Recipe by ${video.creator_handle || 'creator'}`"
         />
         <video
           v-else-if="thumbnailUrl"

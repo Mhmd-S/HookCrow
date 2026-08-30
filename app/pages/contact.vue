@@ -1,8 +1,11 @@
 <script setup lang="ts">
 useSeoMeta({
   title: 'Contact',
-  description: 'Get in touch with the Hookcrow team.',
-  ogTitle: 'Contact · Hookcrow'
+  description: 'Email the Hookcrow team with questions, bug reports, or feature requests about our video template library — we usually reply within 1–2 business days.',
+  ogTitle: 'Contact · Hookcrow',
+  ogDescription: 'Email the Hookcrow team with questions, bug reports, or feature requests about our video template library — we usually reply within 1–2 business days.',
+  twitterTitle: 'Contact · Hookcrow',
+  twitterDescription: 'Email the Hookcrow team with questions, bug reports, or feature requests about our video template library — we usually reply within 1–2 business days.'
 })
 
 useCanonical()

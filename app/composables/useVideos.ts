@@ -3,6 +3,10 @@ import { extractThumbnailFromVideoFile } from '~/utils/videoThumbnail'
 
 export function useVideos() {
   const { authHeaders } = useAuth()
+  // Resolved once, at composable-call time, while the Nuxt instance is current.
+  // The URL helpers below are called from head getters that unhead resolves
+  // detached from any instance, where useRuntimeConfig() throws.
+  const supabaseUrl = useRuntimeConfig().public.supabaseUrl as string
 
   async function fetchVideos() {
     try {
@@ -85,8 +89,6 @@ export function useVideos() {
   }
 
   function getVideoUrl(path: string): string {
-    const config = useRuntimeConfig()
-    const supabaseUrl = config.public.supabaseUrl as string
     return `${supabaseUrl}/storage/v1/object/public/videos/${path}`
   }
 
@@ -97,8 +99,6 @@ export function useVideos() {
   }
 
   function getVideoThumbnailImgUrl(path: string): string {
-    const config = useRuntimeConfig()
-    const supabaseUrl = config.public.supabaseUrl as string
     return `${supabaseUrl}/storage/v1/object/public/videos/${path}`
   }
 

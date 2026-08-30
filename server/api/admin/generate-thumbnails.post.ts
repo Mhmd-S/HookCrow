@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { extractThumbnailFromVideo } from '~~/server/utils/audio'
 
 export default defineEventHandler(async (event) => {
@@ -16,7 +17,7 @@ export default defineEventHandler(async (event) => {
 
   const { data: videosWithoutThumbs, error: fetchErr } = await supabase
     .from('videos')
-    .select('id, video_path')
+    .select('id, video_path, source_url')
     .is('thumbnail_path', null)
     .limit(batchSize)
 
@@ -31,17 +32,34 @@ export default defineEventHandler(async (event) => {
   const errors: { id: string; error: string }[] = []
 
   for (const video of videosWithoutThumbs) {
+    let cleanup: (() => Promise<void>) | null = null
     try {
-      const { data: blob, error: downloadErr } = await supabase.storage
-        .from('videos')
-        .download(video.video_path)
+      let videoBuffer: Buffer
 
-      if (downloadErr || !blob) {
-        errors.push({ id: video.id, error: `Download failed: ${downloadErr?.message}` })
+      if (video.video_path) {
+        const { data: blob, error: downloadErr } = await supabase.storage
+          .from('videos')
+          .download(video.video_path)
+
+        if (downloadErr || !blob) {
+          errors.push({ id: video.id, error: `Download failed: ${downloadErr?.message}` })
+          continue
+        }
+        videoBuffer = Buffer.from(await blob.arrayBuffer())
+      } else if (video.source_url) {
+        // Embed-only row: nothing in storage, so re-resolve the original video.
+        const result = await downloadTikTokToTemp(video.source_url)
+        cleanup = result.cleanup
+        videoBuffer = await readFile(result.path)
+        if (videoBuffer.length < 100 * 1024) {
+          errors.push({ id: video.id, error: 'Resolver returned a stub, not the video' })
+          continue
+        }
+      } else {
+        errors.push({ id: video.id, error: 'No video_path and no source_url' })
         continue
       }
 
-      const videoBuffer = Buffer.from(await blob.arrayBuffer())
       const thumbnailBuffer = await extractThumbnailFromVideo(videoBuffer)
       if (!thumbnailBuffer) {
         errors.push({ id: video.id, error: 'Thumbnail extraction failed' })
@@ -60,7 +78,7 @@ export default defineEventHandler(async (event) => {
 
       const { error: updateErr } = await supabase
         .from('videos')
-        .update({ thumbnail_path: thumbName })
+        .update({ thumbnail_path: thumbName, thumbnail_url: null })
         .eq('id', video.id)
 
       if (updateErr) {
@@ -71,6 +89,8 @@ export default defineEventHandler(async (event) => {
       processed.push(video.id)
     } catch (err) {
       errors.push({ id: video.id, error: err instanceof Error ? err.message : 'Unknown error' })
+    } finally {
+      if (cleanup) await cleanup().catch(() => {})
     }
   }
 

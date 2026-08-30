@@ -2,7 +2,10 @@
 useSeoMeta({
   title: 'Privacy Policy',
   description: 'Hookcrow privacy policy — what data we collect, how we use it, and your rights.',
-  ogTitle: 'Privacy Policy · Hookcrow'
+  ogTitle: 'Privacy Policy · Hookcrow',
+  ogDescription: 'Hookcrow privacy policy — what data we collect, how we use it, and your rights.',
+  twitterTitle: 'Privacy Policy · Hookcrow',
+  twitterDescription: 'Hookcrow privacy policy — what data we collect, how we use it, and your rights.'
 })
 
 useCanonical()

@@ -15,10 +15,14 @@ function toLocked(
     description: string | null
     creator_handle: string | null
     platform: string | null
-    video_path: string
+    video_path: string | null
     duration_seconds: number | null
     semantic_tags: string[] | null
     skeletal_logic: unknown
+    thumbnail_path: string | null
+    thumbnail_url: string | null
+    created_at: string | null
+    updated_at: string | null
   },
   reason: LockedReason
 ): LockedRecipe {
@@ -32,6 +36,10 @@ function toLocked(
     duration_seconds: data.duration_seconds,
     semantic_tags: data.semantic_tags,
     overview_teaser: buildOverviewTeaser(data.skeletal_logic),
+    thumbnail_path: data.thumbnail_path,
+    thumbnail_url: data.thumbnail_url,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
     locked: true,
     reason
   }

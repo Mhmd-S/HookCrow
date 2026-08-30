@@ -3,6 +3,11 @@ import type { Segment, VideoWithSegments, VideoUpdate, SegmentInsert, Video, Ske
 
 definePageMeta({ layout: 'blank', middleware: ['admin'] })
 
+useSeoMeta({
+  title: 'Edit Recipe',
+  robots: 'noindex,nofollow'
+})
+
 const route = useRoute()
 const router = useRouter()
 const videoId = route.params.id as string

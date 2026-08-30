@@ -1,5 +1,6 @@
 import type { Json } from '~/types/database'
 import { readFile } from 'node:fs/promises'
+import { extractThumbnailFromVideo } from '~~/server/utils/audio'
 
 const log = createLogger('ingest-tiktok')
 
@@ -95,6 +96,27 @@ export async function ingestTikTokUrl(
 
     log.info('Downloaded TikTok video to temp', { videoId, sizeMB: (videoBuffer.length / (1024 * 1024)).toFixed(2) })
 
+    // Poster: TikTok's oEmbed thumbnail_url is a signed CDN link that 403s after
+    // ~30 days, so it cannot be the durable poster. We already hold the mp4 here
+    // for analysis — extract a frame and store it, same as the Creative Center path.
+    let thumbnailPath: string | null = null
+    try {
+      const thumb = await extractThumbnailFromVideo(videoBuffer)
+      if (thumb) {
+        const thumbPath = `thumbnails/${crypto.randomUUID()}.jpg`
+        const { error: thumbErr } = await deps.supabase.storage
+          .from('videos')
+          .upload(thumbPath, thumb, { contentType: 'image/jpeg', upsert: false })
+        if (!thumbErr) thumbnailPath = thumbPath
+        else log.warn('Thumbnail upload failed — keeping CDN poster', { videoId, error: thumbErr.message })
+      }
+    } catch (err) {
+      log.warn('Thumbnail extraction failed — keeping CDN poster', {
+        videoId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+
     await analyzeVideoBuffer({
       ai: deps.ai,
       supabase: deps.supabase,
@@ -107,6 +129,11 @@ export async function ingestTikTokUrl(
 
     // Lo-fi publish gate (discovery only): read the analysis result and decide is_published.
     const patch: Record<string, unknown> = { status: 'complete' }
+    if (thumbnailPath) {
+      // Drop the expiring CDN url once we have a durable frame of our own.
+      patch.thumbnail_path = thumbnailPath
+      patch.thumbnail_url = null
+    }
     if (deps.publishGate) {
       const { data: analyzed } = await deps.supabase
         .from('videos')

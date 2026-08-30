@@ -5,6 +5,11 @@ definePageMeta({
   middleware: ['admin'],
   redirect: '/admin',
 })
+
+useSeoMeta({
+  title: 'Recipes',
+  robots: 'noindex,nofollow'
+})
 </script>
 
 <template>

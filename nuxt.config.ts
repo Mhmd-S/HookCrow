@@ -1,4 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+const SITE_URL = (process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
@@ -19,12 +21,11 @@ export default defineNuxtConfig({
         { name: 'theme-color', content: '#5505a0' },
         { property: 'og:site_name', content: 'Hookcrow' },
         { property: 'og:type', content: 'website' },
-        { property: 'og:image', content: '/og-image.png' },
         { property: 'og:image:type', content: 'image/png' },
         { property: 'og:image:width', content: '1200' },
         { property: 'og:image:height', content: '630' },
         { name: 'twitter:card', content: 'summary_large_image' },
-        { name: 'twitter:image', content: '/og-image.png' }
+        { property: 'og:locale', content: 'en_US' }
       ]
     }
   },
@@ -56,7 +57,7 @@ export default defineNuxtConfig({
     discoveryDailyCap: process.env.DISCOVERY_DAILY_CAP,
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
-      siteUrl: process.env.SITE_URL || 'http://localhost:3000'
+      siteUrl: SITE_URL
     }
   },
   nitro: {

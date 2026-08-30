@@ -6,6 +6,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, message: 'unauthorized' })
   }
 
-  const summaries = await runDiscovery({ onlyDue: true })
+  // Bounded per tick so the request completes well inside proxy timeouts;
+  // the scheduler fires often enough to work through the backlog.
+  const maxSources = Number(getQuery(event).maxSources ?? 2) || 2
+
+  const summaries = await runDiscovery({ onlyDue: true, maxSources })
   return { data: summaries }
 })
