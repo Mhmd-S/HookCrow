@@ -78,13 +78,6 @@ function formatDuration(seconds: number | null): string | null {
             <UIcon name="i-ph-play-circle-fill" class="w-12 h-12 text-white drop-shadow-lg" />
           </div>
           <div
-            v-if="video.is_premium"
-            class="absolute top-2 left-2 bg-primary text-inverted text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider flex items-center gap-1"
-          >
-            <UIcon name="i-ph-crown-simple-fill" class="w-3 h-3" />
-            Pro
-          </div>
-          <div
             v-if="formatDuration(video.duration_seconds)"
             class="absolute bottom-2 right-2 bg-black/70 text-white text-[11px] px-1.5 py-0.5 rounded font-medium"
           >

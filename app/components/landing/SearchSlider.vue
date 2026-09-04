@@ -16,13 +16,11 @@ const props = withDefaults(defineProps<{
 })
 
 const { getVideoThumbnailUrl, getVideoThumbnailImgUrl } = useVideos()
-const { isPro, isAdmin, isAuthenticated } = useAuth()
 
 const scroller = ref<HTMLElement | null>(null)
 
-const visibleVideos = computed(() =>
-  isAuthenticated.value ? props.videos : props.videos.slice(0, 6)
-)
+// The library is open — anonymous visitors see the same slides as members.
+const visibleVideos = computed(() => props.videos)
 
 const seeAllTo = computed(() => {
   const q: Record<string, string> = {}
@@ -30,10 +28,6 @@ const seeAllTo = computed(() => {
   if (props.tag) q.tag = props.tag
   return { path: '/search', query: q }
 })
-
-function isLocked(video: { is_premium?: boolean | null }): boolean {
-  return !!video.is_premium && !isPro.value && !isAdmin.value
-}
 
 function formatDuration(seconds: number | null): string | null {
   if (!seconds || seconds >= 3600) return null
@@ -114,7 +108,6 @@ function scrollBy(direction: 1 | -1) {
             loading="lazy"
             decoding="async"
             class="w-full h-full object-cover"
-            :class="{ 'blur-md scale-110': isLocked(video) }"
             :alt="video.title || `Video by ${video.creator_handle || 'creator'}`"
           />
           <div
@@ -122,23 +115,9 @@ function scrollBy(direction: 1 | -1) {
             class="w-full h-full bg-neutral-200"
           />
           <div
-            v-if="isLocked(video)"
-            class="absolute inset-0 bg-black/40 flex items-center justify-center"
-          >
-            <UIcon name="i-ph-lock-fill" class="w-7 h-7 text-white drop-shadow-lg" />
-          </div>
-          <div
-            v-else
             class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
           >
             <UIcon name="i-ph-play-circle-fill" class="w-10 h-10 text-white drop-shadow-lg" />
-          </div>
-          <div
-            v-if="video.is_premium"
-            class="absolute top-2 left-2 bg-primary text-inverted text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider flex items-center gap-1"
-          >
-            <UIcon name="i-ph-crown-simple-fill" class="w-3 h-3" />
-            Pro
           </div>
           <div
             v-if="formatDuration(video.duration_seconds)"

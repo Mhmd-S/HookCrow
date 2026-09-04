@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { LockedRecipe, VideoWithSegments, Segment, SkeletalLogicAnalysis, SkeletalLogicSegmentAnalysis, VideoVisualAnalysis, SegmentVisualAnalysis } from '~/types'
+import type { VideoWithSegments, Segment, SkeletalLogicAnalysis, SkeletalLogicSegmentAnalysis, VideoVisualAnalysis, SegmentVisualAnalysis } from '~/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -9,7 +9,7 @@ const { getVideoUrl, getVideoThumbnailImgUrl, updateVideo, deleteVideo } = useVi
 const { authHeaders, isAuthenticated, isAdmin } = useAuth()
 const { isBookmarked, toggleBookmark, fetchBookmarks, loaded: bookmarksLoaded } = useBookmarks()
 
-type RecipeResponse = VideoWithSegments | LockedRecipe
+type RecipeResponse = VideoWithSegments
 
 const recipe = ref<RecipeResponse | null>(null)
 const loading = ref(true)
@@ -33,10 +33,10 @@ async function loadRecipe() {
   }
 }
 
-// Auth lives in localStorage, so the server can only ever fetch the anonymous
-// (locked) shape — which is exactly what crawlers should see. Fetching it during
-// SSR is what puts the title, description, og: tags and JSON-LD into the served
-// HTML; link-preview bots (Twitter, Slack, LinkedIn) never run our JS.
+// The library is open, so SSR fetches the same full recipe every visitor and
+// crawler sees. Fetching it during SSR is what puts the title, description,
+// og: tags and JSON-LD into the served HTML; link-preview bots (Twitter, Slack,
+// LinkedIn) never run our JS.
 const { data: ssrRecipe, error: ssrError } = await useAsyncData<RecipeResponse>(
   `recipe:${videoId}`,
   () => $fetch<{ data: RecipeResponse }>(`/api/recipes/${videoId}`).then(res => res.data)
@@ -55,8 +55,7 @@ if (ssrRecipe.value) {
 }
 
 onMounted(() => {
-  // Re-fetch with credentials to upgrade a locked recipe to the full one.
-  if (isAuthenticated.value || !recipe.value) loadRecipe()
+  if (!recipe.value) loadRecipe()
   if (isAuthenticated.value && !bookmarksLoaded.value) fetchBookmarks()
 })
 
@@ -99,9 +98,7 @@ async function onDelete() {
   router.push('/admin')
 }
 
-const isLocked = computed(() => recipe.value !== null && 'locked' in recipe.value && recipe.value.locked === true)
-const fullRecipe = computed<VideoWithSegments | null>(() => (isLocked.value ? null : (recipe.value as VideoWithSegments | null)))
-const lockedRecipe = computed<LockedRecipe | null>(() => (isLocked.value ? (recipe.value as LockedRecipe) : null))
+const fullRecipe = computed<VideoWithSegments | null>(() => recipe.value)
 
 const videoUrl = computed(() =>
   recipe.value && recipe.value.video_path ? getVideoUrl(recipe.value.video_path) : ''
@@ -132,10 +129,10 @@ function cleanTitle(raw: string | null | undefined): string | null {
 // nuxt.config sets titleTemplate '%s · Hookcrow' — `title` must stay unsuffixed.
 // og:/twitter: titles bypass titleTemplate, so they carry the suffix themselves.
 const pageTitle = computed(() => {
-  const cleaned = cleanTitle(fullRecipe.value?.title || lockedRecipe.value?.title)
+  const cleaned = cleanTitle(fullRecipe.value?.title)
   if (cleaned) return cleaned
   // No usable caption — fall back to something descriptive rather than "Recipe".
-  const r = fullRecipe.value ?? lockedRecipe.value
+  const r = fullRecipe.value
   const handle = r?.creator_handle ? `@${r.creator_handle}` : null
   const platform = r?.platform
   if (handle && platform) return `${platform} ad breakdown by ${handle}`
@@ -144,10 +141,8 @@ const pageTitle = computed(() => {
 })
 const socialTitle = computed(() => `${pageTitle.value} · Hookcrow`)
 
-// SSR is always anonymous (auth lives in localStorage), so a premium recipe is
-// rendered locked for every crawler. Both shapes must therefore feed the meta.
 const seoSource = computed(() => {
-  const r = fullRecipe.value ?? lockedRecipe.value
+  const r = fullRecipe.value
   if (!r) return null
   const skeletal = fullRecipe.value?.skeletal_logic
   const overview = skeletal && typeof skeletal === 'object'
@@ -164,7 +159,7 @@ const seoSource = computed(() => {
     thumbnail_url: r.thumbnail_url,
     created_at: r.created_at,
     updated_at: r.updated_at,
-    summary: overview ?? lockedRecipe.value?.overview_teaser ?? r.description ?? null
+    summary: overview ?? r.description ?? null
   }
 })
 
@@ -214,8 +209,6 @@ useSeoMeta({
 useCanonical(`/recipe/${videoId}`)
 
 // ── SEO: structured data ───────────────────────────────────
-// Driven by seoSource, not fullRecipe, so a locked (premium) recipe — the only
-// thing SSR can ever produce — still emits schema instead of nothing.
 const structuredData = computed(() => {
   const r = seoSource.value
   if (!r) return null
@@ -251,18 +244,7 @@ const structuredData = computed(() => {
     about: (r.semantic_tags || []).slice(0, 8).map(tag => ({
       '@type': 'Thing', name: tag
     })),
-    // Google's paywalled-content markup: declaring the gate is what keeps
-    // serving crawlers more than users from counting as cloaking.
-    ...(isLocked.value
-      ? {
-          isAccessibleForFree: false,
-          hasPart: {
-            '@type': 'WebPageElement',
-            isAccessibleForFree: false,
-            cssSelector: '.recipe-gated'
-          }
-        }
-      : { isAccessibleForFree: true }),
+    isAccessibleForFree: true,
     ...(videoUrl.value ? {
       video: {
         '@type': 'VideoObject',
@@ -375,10 +357,6 @@ function seekTo(time: number) {
         Back to Library
       </UButton>
     </div>
-
-    <!-- Paywall -->
-    <!-- .recipe-gated is referenced by the JSON-LD paywall markup — keep in sync. -->
-    <PaywallCard v-else-if="lockedRecipe" class="recipe-gated" :recipe="lockedRecipe" :video-url="videoUrl" />
 
     <!-- Full recipe -->
     <div v-else-if="fullRecipe" class="flex flex-col lg:flex-row gap-6 lg:gap-8 p-4 md:p-6 max-w-7xl mx-auto">

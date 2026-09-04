@@ -11,7 +11,6 @@ export default defineEventHandler((event) => {
     'Disallow: /admin/',
     'Disallow: /account',
     'Disallow: /bookmarks',
-    'Disallow: /billing/',
     'Disallow: /login',
     'Disallow: /register',
 

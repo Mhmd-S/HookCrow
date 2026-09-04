@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { isAuthenticated, isPro, profile, logout, loading } = useAuth()
+const { isAuthenticated, profile, logout, loading } = useAuth()
 const router = useRouter()
 const route = useRoute()
 
@@ -85,22 +85,6 @@ const avatarInitial = computed(() =>
       </template>
       <template v-else-if="isAuthenticated">
         <NuxtLink
-          v-if="!isPro"
-          to="/pricing"
-          class="hidden md:inline-flex items-center h-9 px-4 rounded-full bg-primary text-inverted text-sm font-semibold hover:bg-primary/90 transition-colors gap-1.5"
-        >
-          <UIcon name="i-ph-crown-simple" class="w-4 h-4" />
-          Upgrade
-        </NuxtLink>
-        <NuxtLink
-          v-else
-          to="/account"
-          class="hidden md:inline-flex items-center h-9 px-4 rounded-full bg-primary text-inverted text-sm font-semibold gap-1.5"
-        >
-          <UIcon name="i-ph-crown-simple-fill" class="w-4 h-4" />
-          Pro
-        </NuxtLink>
-        <NuxtLink
           to="/account"
           class="flex items-center justify-center w-9 h-9 rounded-full bg-elevated text-sm font-semibold text-default hover:ring-2 hover:ring-accented transition-all overflow-hidden"
           :aria-label="`Account · ${profile?.display_name || profile?.email || ''}`"
@@ -109,12 +93,6 @@ const avatarInitial = computed(() =>
         </NuxtLink>
       </template>
       <template v-else>
-        <NuxtLink
-          to="/pricing"
-          class="inline-flex items-center h-9 px-3 md:px-4 rounded-full text-sm font-semibold text-default hover:bg-elevated transition-colors"
-        >
-          Pricing
-        </NuxtLink>
         <NuxtLink
           to="/login"
           class="inline-flex items-center h-9 px-3 md:px-4 rounded-full text-sm font-semibold text-default hover:bg-elevated transition-colors"

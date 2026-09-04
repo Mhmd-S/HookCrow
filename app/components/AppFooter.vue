@@ -23,7 +23,6 @@ const { isAuthenticated } = useAuth()
           <p class="text-xs font-semibold uppercase tracking-wider text-dimmed">Product</p>
           <ul class="space-y-2 text-sm">
             <li><NuxtLink to="/search" class="text-default hover:text-primary transition-colors">Browse</NuxtLink></li>
-            <li><NuxtLink to="/pricing" class="text-default hover:text-primary transition-colors">Pricing</NuxtLink></li>
             <li v-if="isAuthenticated">
               <NuxtLink to="/bookmarks" class="text-default hover:text-primary transition-colors">Bookmarks</NuxtLink>
             </li>

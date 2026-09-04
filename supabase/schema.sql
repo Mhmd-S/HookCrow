@@ -50,21 +50,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email text NOT NULL,
   display_name text,
   role text NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
-  subscription_status text NOT NULL DEFAULT 'free'
-    CHECK (subscription_status IN ('free', 'active', 'past_due', 'canceled')),
-  stripe_customer_id text,
-  subscription_id text,
-  current_period_end timestamp with time zone,
-  cancel_at_period_end boolean NOT NULL DEFAULT false,
-  plan text CHECK (plan IN ('monthly', 'annual')),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now()
 );
-ALTER TABLE public.profiles
-  ADD COLUMN IF NOT EXISTS cancel_at_period_end boolean NOT NULL DEFAULT false;
-CREATE INDEX IF NOT EXISTS idx_profiles_stripe_customer_id
-  ON public.profiles(stripe_customer_id);
-
 DROP TRIGGER IF EXISTS profiles_updated_at ON public.profiles;
 CREATE TRIGGER profiles_updated_at
   BEFORE UPDATE ON public.profiles
@@ -286,18 +274,6 @@ SECURITY DEFINER
 STABLE
 AS $$
   SELECT EXISTS (SELECT 1 FROM public.profiles WHERE id = uid AND role = 'admin');
-$$;
-
-CREATE OR REPLACE FUNCTION public.has_pro(uid uuid)
-RETURNS boolean
-LANGUAGE sql
-SECURITY DEFINER
-STABLE
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.profiles
-    WHERE id = uid AND subscription_status = 'active'
-  );
 $$;
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;

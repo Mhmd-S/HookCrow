@@ -46,23 +46,12 @@ export default defineNuxtConfig({
     geminiApiKey: process.env.GEMINI_API_KEY,
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     supabaseKey: process.env.SUPABASE_KEY,
-    stripeSecretKey: process.env.STRIPE_SECRET_KEY,
-    stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-    stripePriceIdMonthly: process.env.STRIPE_PRICE_ID_MONTHLY,
-    stripePriceIdAnnual: process.env.STRIPE_PRICE_ID_ANNUAL,
-    resendApiKey: process.env.RESEND_API_KEY,
-    emailFrom: process.env.EMAIL_FROM,
     apifyToken: process.env.APIFY_TOKEN,
     discoveryTickSecret: process.env.DISCOVERY_TICK_SECRET,
     discoveryDailyCap: process.env.DISCOVERY_DAILY_CAP,
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       siteUrl: SITE_URL
-    }
-  },
-  nitro: {
-    routeRules: {
-      '/api/stripe/webhook': { cors: false }
     }
   }
 })

@@ -19,8 +19,6 @@
     "form-data": "^4.0.5",
     "node-fetch": "^3.3.2",
     "nuxt": "^4.2.2",
-    "resend": "^6.12.2",
-    "stripe": "^22.0.1",
     "tailwindcss": "^4.1.18",
     "vue": "^3.5.26",
     "vue-router": "^4.6.4"

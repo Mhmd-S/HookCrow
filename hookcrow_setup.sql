@@ -10,8 +10,8 @@
 --   + 001_add_template_markdown (logic_flows.template_markdown, updated_at, idx)
 --   + 003_admin_cms_rewrite    (videos.user_id -> created_by, thumbnail_path,
 --                               published_at, is_admin, RLS)
---   + 004_paywall              (profiles subscription cols, videos.is_premium,
---                               has_pro)
+--   + 004_paywall              (videos.is_premium only — the subscription
+--                               columns and has_pro were removed by 012)
 --   + 005_bookmarks            (bookmarks table + RLS)
 --   + 006_search_document_v2   (search doc w/ segment transcripts,
 --                               segments_touch_parent_video)
@@ -20,10 +20,9 @@
 --   + 008_embeddings           (videos.embedding vector(768) + HNSW index)
 --   + 009_search_thresholds    (search_videos recall floor)
 --   + 010_search_videos_thumbnail (FINAL search_videos signature w/ thumbnail_path)
---   + 011_profiles_cancel_at_period_end (already inline in schema.sql)
 --
--- SKIPPED (see task): 010_stripe_wrapper.sql entirely — foreign data wrapper,
---   `stripe` foreign schema, stripe_server, vault secret, v_stripe_* views.
+-- SKIPPED: 010_stripe_wrapper.sql entirely — the paywall was removed (012), so
+--   no Stripe foreign data wrapper, schema, server, vault secret or views.
 -- =============================================================================
 
 BEGIN;
@@ -72,26 +71,16 @@ CREATE TRIGGER logic_flows_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 
 -- -----------------------------------------------------------------------------
--- profiles (subscription state reconciled from 004 + 011; FK to shared auth.users)
+-- profiles (FK to shared auth.users)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email text NOT NULL,
   display_name text,
   role text NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
-  subscription_status text NOT NULL DEFAULT 'free'
-    CHECK (subscription_status IN ('free', 'active', 'past_due', 'canceled')),
-  stripe_customer_id text,
-  subscription_id text,
-  current_period_end timestamp with time zone,
-  cancel_at_period_end boolean NOT NULL DEFAULT false,
-  plan text CHECK (plan IN ('monthly', 'annual')),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now()
 );
-
-CREATE INDEX IF NOT EXISTS idx_profiles_stripe_customer_id
-  ON public.profiles(stripe_customer_id);
 
 DROP TRIGGER IF EXISTS profiles_updated_at ON public.profiles;
 CREATE TRIGGER profiles_updated_at
@@ -445,19 +434,6 @@ STABLE
 SET search_path = public, extensions, pg_catalog
 AS $$
   SELECT EXISTS (SELECT 1 FROM public.profiles WHERE id = uid AND role = 'admin');
-$$;
-
-CREATE OR REPLACE FUNCTION public.has_pro(uid uuid)
-RETURNS boolean
-LANGUAGE sql
-SECURITY DEFINER
-STABLE
-SET search_path = public, extensions, pg_catalog
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.profiles
-    WHERE id = uid AND subscription_status = 'active'
-  );
 $$;
 
 -- -----------------------------------------------------------------------------

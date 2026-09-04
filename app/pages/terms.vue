@@ -34,7 +34,8 @@ useCanonical()
     <p class="text-muted leading-relaxed">
       Hookcrow is a video-anatomy template library that breaks down short-form marketing videos
       into reusable structural templates (hooks, bridges, value, proof, CTAs) along with AI-generated
-      analyses. Features, pricing tiers, and limits may change as we improve the Service.
+      analyses. The Service is provided free of charge; features and limits may change as we
+      improve it.
     </p>
 
     <h2 class="text-lg font-semibold mt-6">3. Accounts</h2>
@@ -45,12 +46,10 @@ useCanonical()
       if you suspect unauthorised access. We may suspend or terminate accounts that violate these Terms.
     </p>
 
-    <h2 class="text-lg font-semibold mt-6">4. Subscriptions &amp; Payments</h2>
+    <h2 class="text-lg font-semibold mt-6">4. No Fees</h2>
     <p class="text-muted leading-relaxed">
-      Paid plans are billed in advance on a recurring basis through our payment processor, Stripe.
-      Subscriptions renew automatically until cancelled. You can cancel at any time from your
-      billing page; cancellation takes effect at the end of the current billing period. Except where
-      required by law, fees are non-refundable.
+      The Service is free to use. We do not charge for access to the library, and we do not collect
+      payment details. If we ever introduce paid features, we will update these Terms before doing so.
     </p>
 
     <h2 class="text-lg font-semibold mt-6">5. Acceptable Use</h2>

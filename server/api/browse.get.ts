@@ -10,8 +10,6 @@ async function fallbackBrowse(
     limit: number
     offset: number
     page: number
-    freeTier?: boolean
-    effectiveLimit?: number
   }
 ) {
   let q = supabase
@@ -27,9 +25,6 @@ async function fallbackBrowse(
   }
   if (opts.tags.length > 0) {
     q = q.overlaps('semantic_tags', opts.tags)
-  }
-  if (opts.freeTier) {
-    q = q.eq('is_premium', false)
   }
   // Broaden recall: OR across title, description, creator_handle for the raw
   // search term plus every AI-extracted keyword. Commas and parens break
@@ -55,29 +50,21 @@ async function fallbackBrowse(
     throw createError({ statusCode: 500, message: fbError.message })
   }
 
-  const rows = data || []
-  const capped = opts.effectiveLimit != null ? rows.slice(0, opts.effectiveLimit) : rows
-  return { data: capped, page: opts.page, limit: opts.effectiveLimit ?? opts.limit }
+  return { data: data || [], page: opts.page, limit: opts.limit }
 }
 
 export default defineEventHandler(async (event) => {
   const user = await getServerUser(event)
   const anon = !user
-  const isPro = user?.subscriptionStatus === 'active'
-  const isAdmin = user?.role === 'admin'
-  const freeTier = !isPro && !isAdmin
   const query = getQuery(event)
   const supabase = useServerSupabase()
 
   const page = Math.max(1, parseInt(String(query.page)) || 1)
   const requestedLimit = Math.min(Math.max(1, parseInt(String(query.limit)) || 24), 50)
 
-  // Free tier: cap to 10 non-premium results, no pagination beyond that.
-  // We over-fetch from the RPC to compensate for post-filtering of premium rows.
-  const effectiveLimit = freeTier ? Math.min(requestedLimit, 10) : requestedLimit
-  const fetchLimit = freeTier ? Math.min(effectiveLimit * 3, 30) : effectiveLimit
-  const effectivePage = freeTier ? 1 : page
-  const offset = (effectivePage - 1) * effectiveLimit
+  // The library is open — no tier caps. Everyone gets the full result set.
+  const limit = requestedLimit
+  const offset = (page - 1) * limit
 
   const searchTerm = query.search ? sanitizeString(String(query.search)).trim() : ''
   const keywords = query.keywords ? String(query.keywords).split(',').filter(Boolean) : []
@@ -125,7 +112,7 @@ export default defineEventHandler(async (event) => {
     query_embedding: queryEmbedding,
     tag_filter: tags.length > 0 ? tags : null,
     logic_flow_filter: logicFlowId,
-    result_limit: fetchLimit,
+    result_limit: limit,
     result_offset: offset
   }) as { data: any[] | null; error: any }
 
@@ -134,19 +121,13 @@ export default defineEventHandler(async (event) => {
 
     if (error.code === '42883' || error.message?.includes('function') || error.code === 'PGRST202') {
       log.info('Falling back to direct query (search_videos RPC not found)')
-      return await fallbackBrowse(supabase, { searchTerm, keywords, tags, logicFlowId, limit: fetchLimit, offset, page: effectivePage, freeTier, effectiveLimit })
+      return await fallbackBrowse(supabase, { searchTerm, keywords, tags, logicFlowId, limit, offset, page })
     }
 
     throw createError({ statusCode: 500, message: error.message })
   }
 
-  let rows = data || []
-
-  // Free tier: strip premium rows, then cap to effectiveLimit. Premium rows
-  // aren't shown at all — no blurred/censored teaser.
-  if (freeTier) {
-    rows = rows.filter((r: any) => !r.is_premium).slice(0, effectiveLimit)
-  }
+  const rows = data || []
 
   // The search_videos RPC predates videos.thumbnail_url (embed rows' only
   // poster). Merge it in with one batched query rather than a DB migration.
@@ -184,8 +165,8 @@ export default defineEventHandler(async (event) => {
 
   return {
     data: videos,
-    page: effectivePage,
-    limit: effectiveLimit,
+    page,
+    limit,
     anon
   }
 })

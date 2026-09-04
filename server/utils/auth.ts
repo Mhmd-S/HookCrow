@@ -1,10 +1,9 @@
 import type { H3Event } from 'h3'
-import type { SubscriptionStatus, UserRole } from '~/types'
+import type { UserRole } from '~/types'
 
 export interface ServerUser {
   id: string
   role: UserRole
-  subscriptionStatus: SubscriptionStatus
 }
 
 /**
@@ -23,14 +22,13 @@ export async function getServerUser(event: H3Event): Promise<ServerUser | null> 
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, subscription_status')
+    .select('role')
     .eq('id', user.id)
     .single()
 
   return {
     id: user.id,
-    role: (profile?.role as UserRole) || 'user',
-    subscriptionStatus: (profile?.subscription_status as SubscriptionStatus) || 'free'
+    role: (profile?.role as UserRole) || 'user'
   }
 }
 

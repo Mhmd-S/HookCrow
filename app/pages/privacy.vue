@@ -33,9 +33,8 @@ useCanonical()
       stored in our hosted database and object storage.
     </p>
     <p class="text-muted leading-relaxed">
-      <strong class="text-default">Payment information.</strong> If you subscribe to a paid plan,
-      billing is handled by Stripe. We receive subscription status and the last four digits of your
-      card, but we do not store full payment card details on our servers.
+      <strong class="text-default">Payment information.</strong> None. The Service is free and we do
+      not collect or process payment details.
     </p>
     <p class="text-muted leading-relaxed">
       <strong class="text-default">Usage data.</strong> We log basic usage information (for
@@ -46,8 +45,8 @@ useCanonical()
     <h2 class="text-lg font-semibold mt-6">2. How We Use Information</h2>
     <p class="text-muted leading-relaxed">
       We use the information we collect to operate and improve the Service, process videos and
-      generate analyses you request, authenticate you, process payments, communicate with you
-      about updates or support, detect and prevent abuse, and comply with legal obligations.
+      generate analyses you request, authenticate you, communicate with you about updates or
+      support, detect and prevent abuse, and comply with legal obligations.
     </p>
 
     <h2 class="text-lg font-semibold mt-6">3. Third-Party Services</h2>
@@ -56,7 +55,6 @@ useCanonical()
     </p>
     <ul class="list-disc pl-6 text-muted leading-relaxed space-y-1">
       <li><strong class="text-default">Supabase</strong> — database, authentication, and object storage.</li>
-      <li><strong class="text-default">Stripe</strong> — subscription billing and payment processing.</li>
       <li><strong class="text-default">Google Gemini</strong> — AI analysis of uploaded videos (transcription, structure, audio, and visual analysis). Uploaded video content is transmitted to Gemini to generate analyses and may be retained temporarily according to Google's policies.</li>
     </ul>
     <p class="text-muted leading-relaxed">

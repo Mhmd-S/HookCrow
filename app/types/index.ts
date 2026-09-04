@@ -18,31 +18,6 @@ export type SegmentUpdate = Database['public']['Tables']['segments']['Update']
 
 // Auth
 export type UserRole = 'admin' | 'user'
-export type SubscriptionStatus = 'free' | 'active' | 'past_due' | 'canceled'
-export type SubscriptionPlan = 'monthly' | 'annual'
-
-// Paywall — returned by /api/recipes/:id when the viewer lacks access
-export type LockedReason = 'premium' | 'login_required'
-
-export interface LockedRecipe {
-  id: string
-  title: string | null
-  description: string | null
-  creator_handle: string | null
-  platform: string | null
-  video_path: string | null
-  duration_seconds: number | null
-  semantic_tags: string[] | null
-  overview_teaser: string | null
-  // Public metadata — kept on the locked shape so crawlers still get a real
-  // og:image and Article dates for a gated recipe.
-  thumbnail_path: string | null
-  thumbnail_url: string | null
-  created_at: string | null
-  updated_at: string | null
-  locked: true
-  reason: LockedReason
-}
 
 // Video with relations
 export interface VideoWithSegments extends Video {

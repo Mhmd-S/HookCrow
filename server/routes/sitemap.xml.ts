@@ -8,7 +8,6 @@ export default defineEventHandler(async (event) => {
   const staticRoutes = [
     { path: '/', priority: '1.0', changefreq: 'daily' },
     { path: '/search', priority: '0.9', changefreq: 'daily' },
-    { path: '/pricing', priority: '0.8', changefreq: 'monthly' },
     { path: '/terms', priority: '0.3', changefreq: 'yearly' },
     { path: '/privacy', priority: '0.3', changefreq: 'yearly' },
     { path: '/contact', priority: '0.5', changefreq: 'monthly' }

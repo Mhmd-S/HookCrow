@@ -1,50 +1,3 @@
-import type { LockedRecipe, LockedReason } from '~/types'
-
-function buildOverviewTeaser(skeletal: unknown): string | null {
-  if (!skeletal || typeof skeletal !== 'object') return null
-  const overview = (skeletal as { overview?: unknown }).overview
-  if (typeof overview !== 'string') return null
-  const firstSentence = overview.split(/(?<=[.!?])\s/)[0] ?? overview
-  return firstSentence.length > 180 ? `${firstSentence.slice(0, 177)}...` : firstSentence
-}
-
-function toLocked(
-  data: {
-    id: string
-    title: string | null
-    description: string | null
-    creator_handle: string | null
-    platform: string | null
-    video_path: string | null
-    duration_seconds: number | null
-    semantic_tags: string[] | null
-    skeletal_logic: unknown
-    thumbnail_path: string | null
-    thumbnail_url: string | null
-    created_at: string | null
-    updated_at: string | null
-  },
-  reason: LockedReason
-): LockedRecipe {
-  return {
-    id: data.id,
-    title: data.title,
-    description: data.description,
-    creator_handle: data.creator_handle,
-    platform: data.platform,
-    video_path: data.video_path,
-    duration_seconds: data.duration_seconds,
-    semantic_tags: data.semantic_tags,
-    overview_teaser: buildOverviewTeaser(data.skeletal_logic),
-    thumbnail_path: data.thumbnail_path,
-    thumbnail_url: data.thumbnail_url,
-    created_at: data.created_at,
-    updated_at: data.updated_at,
-    locked: true,
-    reason
-  }
-}
-
 export default defineEventHandler(async (event) => {
   const user = await getServerUser(event)
   const id = validateUUID(getRouterParam(event, 'id'))
@@ -68,18 +21,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Recipe not found' })
   }
 
-  // Admins see everything.
-  if (isAdmin) return { data }
-
-  // Premium recipes require Pro regardless of auth state.
-  if (data.is_premium) {
-    if (!user || !canViewFullRecipe(user, data)) {
-      return { data: toLocked(data, 'premium') }
-    }
-    return { data }
-  }
-
-  // Free recipe: open to anyone, including anonymous visitors. Bookmarks and
-  // other account-only actions are still gated client-side.
+  // Published recipes are open to everyone, including anonymous visitors.
+  // Bookmarks and other account-only actions are still gated client-side.
   return { data }
 })

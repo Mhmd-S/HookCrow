@@ -3,7 +3,7 @@ import type { Video } from '~/types'
 
 const { videos, loading, filters, searchInterpretation, loadBrowse, setFilters, clearFilters } = useBrowse()
 const { getVideoUrl } = useVideos()
-const { isPro, isAdmin, isAuthenticated, authHeaders } = useAuth()
+const { authHeaders } = useAuth()
 const route = useRoute()
 const router = useRouter()
 
@@ -37,10 +37,6 @@ const SLIDER_PRESETS: SliderPreset[] = [
 const sliderVideos = ref<Video[][]>(SLIDER_PRESETS.map(() => []))
 const slidersLoading = ref(false)
 const slidersLoaded = ref(false)
-
-function isLocked(video: { is_premium?: boolean | null }): boolean {
-  return !!video.is_premium && !isPro.value && !isAdmin.value
-}
 
 function syncFiltersFromRoute() {
   const q = (route.query.q as string) || ''
@@ -109,9 +105,8 @@ const hasActiveFilters = computed(() => {
 
 const showSliders = computed(() => !hasActiveFilters.value)
 
-const visibleVideos = computed(() =>
-  isAuthenticated.value ? videos.value : videos.value.slice(0, 5)
-)
+// The library is open — anonymous visitors see the same results as members.
+const visibleVideos = computed(() => videos.value)
 
 watch(showSliders, (v) => {
   if (v) loadSliders()
@@ -248,7 +243,6 @@ function formatDuration(seconds: number | null): string | null {
             v-if="video.video_path"
             :src="getVideoUrl(video.video_path)"
             class="w-full h-full object-cover"
-            :class="{ 'blur-md scale-110': isLocked(video) }"
             preload="metadata"
             muted
             playsinline
@@ -257,7 +251,6 @@ function formatDuration(seconds: number | null): string | null {
             v-else-if="video.thumbnail_url"
             :src="video.thumbnail_url"
             class="w-full h-full object-cover"
-            :class="{ 'blur-md scale-110': isLocked(video) }"
             loading="lazy"
             :alt="video.title || `Recipe by ${video.creator_handle || 'creator'}`"
           >
@@ -265,23 +258,9 @@ function formatDuration(seconds: number | null): string | null {
             <UIcon name="i-ph-film-strip" class="w-10 h-10 text-dimmed" />
           </div>
           <div
-            v-if="isLocked(video)"
-            class="absolute inset-0 bg-black/40 flex items-center justify-center"
-          >
-            <UIcon name="i-ph-lock-fill" class="w-8 h-8 text-white drop-shadow-lg" />
-          </div>
-          <div
-            v-else
             class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
           >
             <UIcon name="i-ph-play-circle-fill" class="w-12 h-12 text-white drop-shadow-lg" />
-          </div>
-          <div
-            v-if="video.is_premium"
-            class="absolute top-2 left-2 bg-primary text-inverted text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider flex items-center gap-1"
-          >
-            <UIcon name="i-ph-crown-simple-fill" class="w-3 h-3" />
-            Pro
           </div>
           <div
             v-if="formatDuration(video.duration_seconds)"

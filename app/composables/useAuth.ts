@@ -19,7 +19,6 @@ export function useAuth() {
   const isAuthenticated = computed(() => !!user.value)
   const isAdmin = computed(() => profile.value?.role === 'admin')
   const role = computed<UserRole | null>(() => profile.value?.role ?? null)
-  const isPro = computed(() => profile.value?.subscription_status === 'active')
 
   async function fetchProfile() {
     const token = session.value?.access_token
@@ -189,7 +188,6 @@ export function useAuth() {
     isAuthenticated,
     isAdmin,
     role,
-    isPro,
     login,
     register,
     resendConfirmation,
