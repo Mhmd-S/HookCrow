@@ -1,16 +1,9 @@
-const PUBLIC_EXACT = new Set(['/', '/search', '/login', '/register', '/terms', '/privacy', '/contact', '/auth/callback'])
-
-function isPublic(path: string): boolean {
-  if (PUBLIC_EXACT.has(path)) return true
-  // Recipe detail pages are public; server decides what to return.
-  if (path.startsWith('/recipe/')) return true
-  return false
-}
-
+// The whole public site is open — no page requires an account. /admin is the
+// only gated area and it carries its own `admin` middleware, so this global
+// hook exists purely to bounce anonymous visitors off admin routes early.
 export default defineNuxtRouteMiddleware((to) => {
   if (import.meta.server) return
-
-  if (isPublic(to.path)) return
+  if (!to.path.startsWith('/admin')) return
 
   const { isAuthenticated, loading } = useAuth()
   if (loading.value) return

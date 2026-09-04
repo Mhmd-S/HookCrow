@@ -185,23 +185,6 @@ export interface Database {
           created_at?: string
         }
       }
-      bookmarks: {
-        Row: {
-          user_id: string
-          video_id: string
-          created_at: string
-        }
-        Insert: {
-          user_id: string
-          video_id: string
-          created_at?: string
-        }
-        Update: {
-          user_id?: string
-          video_id?: string
-          created_at?: string
-        }
-      }
       discovery_sources: {
         Row: {
           id: string

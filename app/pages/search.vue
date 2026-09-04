@@ -292,6 +292,5 @@ function formatDuration(seconds: number | null): string | null {
       </NuxtLink>
     </div>
 
-    <PromoCta v-if="videos.length > 0 && !loading" layout="banner" class="mt-10" />
   </div>
 </template>

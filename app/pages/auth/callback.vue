@@ -70,11 +70,11 @@ onMounted(async () => {
           <h1 class="text-lg font-semibold">Couldn't confirm email</h1>
           <p class="text-muted text-sm">{{ errorMessage }}</p>
           <div class="flex flex-col gap-2 pt-2">
-            <UButton to="/register" variant="soft" block>
-              Try signing up again
-            </UButton>
-            <UButton to="/login" variant="ghost" block>
+            <UButton to="/login" variant="soft" block>
               Back to login
+            </UButton>
+            <UButton to="/" variant="ghost" block>
+              Go to the library
             </UButton>
           </div>
         </template>

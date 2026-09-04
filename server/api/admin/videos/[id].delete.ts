@@ -30,8 +30,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, message: segmentsErr.message })
   }
 
-  await supabase.from('bookmarks').delete().eq('video_id', id)
-
   const { error } = await supabase
     .from('videos')
     .delete()

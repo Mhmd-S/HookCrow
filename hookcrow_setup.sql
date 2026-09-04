@@ -12,7 +12,6 @@
 --                               published_at, is_admin, RLS)
 --   + 004_paywall              (videos.is_premium only — the subscription
 --                               columns and has_pro were removed by 012)
---   + 005_bookmarks            (bookmarks table + RLS)
 --   + 006_search_document_v2   (search doc w/ segment transcripts,
 --                               segments_touch_parent_video)
 --   + 007_product_context      (videos.product_context + search doc rewrite -
@@ -155,19 +154,6 @@ CREATE TABLE IF NOT EXISTS public.segments (
 
 CREATE INDEX IF NOT EXISTS idx_segments_video_id ON public.segments(video_id);
 CREATE INDEX IF NOT EXISTS idx_segments_order    ON public.segments(video_id, segment_order);
-
--- -----------------------------------------------------------------------------
--- bookmarks (005)
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.bookmarks (
-  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  video_id uuid NOT NULL REFERENCES public.videos(id) ON DELETE CASCADE,
-  created_at timestamp with time zone DEFAULT now(),
-  PRIMARY KEY (user_id, video_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id  ON public.bookmarks(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_bookmarks_video_id ON public.bookmarks(video_id);
 
 -- -----------------------------------------------------------------------------
 -- Full-text search: videos_search_document_update() — FINAL version (007)
@@ -445,15 +431,6 @@ ALTER TABLE public.profiles    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.logic_flows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.videos      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.segments    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.bookmarks   ENABLE ROW LEVEL SECURITY;
-
--- bookmarks
-DROP POLICY IF EXISTS "bookmarks self select" ON public.bookmarks;
-DROP POLICY IF EXISTS "bookmarks self insert" ON public.bookmarks;
-DROP POLICY IF EXISTS "bookmarks self delete" ON public.bookmarks;
-CREATE POLICY "bookmarks self select" ON public.bookmarks FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "bookmarks self insert" ON public.bookmarks FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "bookmarks self delete" ON public.bookmarks FOR DELETE USING (auth.uid() = user_id);
 
 -- profiles
 DROP POLICY IF EXISTS "profiles self select" ON public.profiles;

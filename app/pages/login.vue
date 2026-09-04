@@ -23,6 +23,7 @@ function destination() {
   const redirect = route.query.redirect
   if (typeof redirect === 'string' && redirect.startsWith('/')) return redirect
   return isAdmin.value ? '/admin' : '/'
+
 }
 
 watch(isAuthenticated, (val) => {
@@ -59,9 +60,6 @@ async function onSubmit(event: FormSubmitEvent<{ email: string; password: string
           <UAlert v-if="error" color="error" :title="error" icon="i-ph-warning" />
         </template>
 
-        <template #footer>
-          Don't have an account? <ULink to="/register" class="text-primary font-medium">Sign up</ULink>
-        </template>
       </UAuthForm>
     </UPageCard>
   </div>

@@ -51,39 +51,6 @@ export function useAuth() {
     }
   }
 
-  async function register(email: string, password: string, displayName?: string) {
-    try {
-      const res = await $fetch<{ data: { user: AuthUser; session: AuthSession | null; needsConfirmation: boolean } }>('/api/auth/register', {
-        method: 'POST',
-        body: { email, password, displayName }
-      })
-
-      if (res.data.needsConfirmation || !res.data.session) {
-        return { error: null, needsConfirmation: true }
-      }
-
-      user.value = res.data.user
-      session.value = res.data.session
-      persistSession(res.data.session)
-      await fetchProfile()
-      return { error: null, needsConfirmation: false }
-    } catch (err: any) {
-      return { error: err.data?.message || err.message || 'Registration failed', needsConfirmation: false }
-    }
-  }
-
-  async function resendConfirmation(email: string) {
-    try {
-      await $fetch('/api/auth/resend-confirmation', {
-        method: 'POST',
-        body: { email }
-      })
-      return { error: null }
-    } catch (err: any) {
-      return { error: err.data?.message || err.message || 'Failed to resend confirmation email' }
-    }
-  }
-
   async function setSessionFromTokens(accessToken: string, refreshToken: string) {
     const s: AuthSession = { access_token: accessToken, refresh_token: refreshToken }
     session.value = s
@@ -189,8 +156,6 @@ export function useAuth() {
     isAdmin,
     role,
     login,
-    register,
-    resendConfirmation,
     setSessionFromTokens,
     logout,
     getAccessToken,

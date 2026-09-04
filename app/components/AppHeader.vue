@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { isAuthenticated, profile, logout, loading } = useAuth()
+const { isAdmin, logout, loading } = useAuth()
 const router = useRouter()
 const route = useRoute()
 
@@ -29,14 +29,10 @@ async function handleLogout() {
 watch(() => route.query.q, (val) => {
   searchQuery.value = (val as string) || ''
 })
-
-const avatarInitial = computed(() =>
-  (profile.value?.display_name || profile.value?.email || 'U').charAt(0).toUpperCase()
-)
 </script>
 
 <template>
-  <!-- Mobbin-style header (users + logged-out) -->
+  <!-- Public header. The only account is admin, so there is no auth UI for visitors. -->
   <header class="h-16 flex items-center gap-3 md:gap-6 px-4 md:px-6 bg-muted shrink-0">
     <!-- Left: Logo + primary nav -->
     <div class="flex items-center gap-6 shrink-0">
@@ -71,40 +67,19 @@ const avatarInitial = computed(() =>
 
     <!-- Right: Icon actions + auth -->
     <div class="flex items-center gap-2 shrink-0">
-      <NuxtLink
-        v-if="isAuthenticated"
-        to="/bookmarks"
-        class="inline-flex items-center justify-center w-9 h-9 rounded-full text-muted hover:text-default hover:bg-elevated transition-colors"
-        aria-label="Bookmarks"
-      >
-        <UIcon name="i-ph-bookmark-simple" class="w-5 h-5" />
-      </NuxtLink>
-
       <template v-if="loading">
         <UIcon name="i-ph-circle-notch" class="w-4 h-4 animate-spin text-muted" />
       </template>
-      <template v-else-if="isAuthenticated">
+      <!-- Admin is the only account type; anonymous visitors see no auth UI. -->
+      <template v-else-if="isAdmin">
         <NuxtLink
-          to="/account"
-          class="flex items-center justify-center w-9 h-9 rounded-full bg-elevated text-sm font-semibold text-default hover:ring-2 hover:ring-accented transition-all overflow-hidden"
-          :aria-label="`Account · ${profile?.display_name || profile?.email || ''}`"
+          to="/admin"
+          class="inline-flex items-center h-9 px-3 md:px-4 rounded-full text-sm font-semibold text-default hover:bg-elevated transition-colors gap-1.5"
         >
-          {{ avatarInitial }}
+          <UIcon name="i-ph-sliders-horizontal" class="w-4 h-4" />
+          Admin
         </NuxtLink>
-      </template>
-      <template v-else>
-        <NuxtLink
-          to="/login"
-          class="inline-flex items-center h-9 px-3 md:px-4 rounded-full text-sm font-semibold text-default hover:bg-elevated transition-colors"
-        >
-          Log in
-        </NuxtLink>
-        <NuxtLink
-          to="/register"
-          class="inline-flex items-center h-9 px-3 md:px-4 rounded-full bg-primary text-inverted text-sm font-semibold hover:bg-primary/90 transition-colors"
-        >
-          Sign up
-        </NuxtLink>
+        <UButton variant="ghost" color="neutral" size="sm" @click="logout">Sign out</UButton>
       </template>
     </div>
   </header>

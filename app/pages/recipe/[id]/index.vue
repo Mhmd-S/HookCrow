@@ -6,8 +6,7 @@ const router = useRouter()
 const videoId = route.params.id as string
 
 const { getVideoUrl, getVideoThumbnailImgUrl, updateVideo, deleteVideo } = useVideos()
-const { authHeaders, isAuthenticated, isAdmin } = useAuth()
-const { isBookmarked, toggleBookmark, fetchBookmarks, loaded: bookmarksLoaded } = useBookmarks()
+const { authHeaders, isAdmin } = useAuth()
 
 type RecipeResponse = VideoWithSegments
 
@@ -56,19 +55,7 @@ if (ssrRecipe.value) {
 
 onMounted(() => {
   if (!recipe.value) loadRecipe()
-  if (isAuthenticated.value && !bookmarksLoaded.value) fetchBookmarks()
 })
-
-const bookmarkBusy = ref(false)
-async function onToggleBookmark() {
-  if (!fullRecipe.value || bookmarkBusy.value) return
-  bookmarkBusy.value = true
-  try {
-    await toggleBookmark(fullRecipe.value)
-  } finally {
-    bookmarkBusy.value = false
-  }
-}
 
 const statusBusy = ref(false)
 async function onToggleStatus() {
@@ -436,16 +423,6 @@ function seekTo(time: number) {
                 @click="onDelete"
               />
             </template>
-            <UButton
-              v-if="isAuthenticated"
-              :icon="isBookmarked(fullRecipe.id) ? 'i-ph-bookmark-simple-fill' : 'i-ph-bookmark-simple'"
-              :color="isBookmarked(fullRecipe.id) ? 'primary' : 'neutral'"
-              variant="soft"
-              size="sm"
-              :loading="bookmarkBusy"
-              :aria-label="isBookmarked(fullRecipe.id) ? 'Remove bookmark' : 'Add bookmark'"
-              @click="onToggleBookmark"
-            />
           </div>
 
           <!-- Meta: who, where, how long, and which formula -->
@@ -498,8 +475,6 @@ function seekTo(time: number) {
             />
           </div>
         </section>
-
-        <PromoCta layout="banner" />
       </div>
     </div>
   </div>

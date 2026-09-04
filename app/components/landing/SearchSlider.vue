@@ -127,8 +127,6 @@ function scrollBy(direction: 1 | -1) {
           </div>
         </div>
       </NuxtLink>
-
-      <PromoCta v-if="!loading && videos.length > 0" layout="card" />
     </div>
   </section>
 </template>
