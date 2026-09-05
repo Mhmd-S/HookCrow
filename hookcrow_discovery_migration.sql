@@ -1,6 +1,6 @@
 -- Hookcrow — Auto-Discovery (Option B) migration
 -- Run against the hookcrow project (zvtgcscnaceclmbwhmbf):
---   psql "postgresql://postgres:[REDACTED-DB-PASSWORD]@db.zvtgcscnaceclmbwhmbf.supabase.co:5432/postgres" -v ON_ERROR_STOP=1 -f ~/projects/hookcrow_discovery_migration.sql
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f ~/projects/hookcrow_discovery_migration.sql
 --
 -- Adds source management + run log for scheduled discovery, and a source_url
 -- index for fast dedup (the app checks source_url before ingesting).

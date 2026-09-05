@@ -1,6 +1,6 @@
 -- Hookcrow hybrid (embed playback + transient-analysis) migration
 -- Run against the hookcrow project (zvtgcscnaceclmbwhmbf):
---   psql "postgresql://postgres:[REDACTED-DB-PASSWORD]@db.zvtgcscnaceclmbwhmbf.supabase.co:5432/postgres" -v ON_ERROR_STOP=1 -f ~/projects/hookcrow_hybrid_migration.sql
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f ~/projects/hookcrow_hybrid_migration.sql
 --
 -- Embed rows store NO mp4 (video_path NULL) and reference the original via source_url;
 -- thumbnail_url holds the external (TikTok oEmbed) thumbnail, distinct from thumbnail_path
