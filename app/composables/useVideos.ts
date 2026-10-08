@@ -102,8 +102,10 @@ export function useVideos() {
     return `${supabaseUrl}/storage/v1/object/public/videos/${path}`
   }
 
-  function getPosterUrl(video: { thumbnail_url?: string | null; video_path?: string | null }): string | null {
-    return video.thumbnail_url ?? (video.video_path ? getVideoUrl(video.video_path) : null)
+  // Still-image poster: our stored frame first, then the (expiring) CDN url.
+  function getPosterUrl(video: { thumbnail_path?: string | null; thumbnail_url?: string | null }): string | null {
+    if (video.thumbnail_path) return getVideoThumbnailImgUrl(video.thumbnail_path)
+    return video.thumbnail_url ?? null
   }
 
   return {

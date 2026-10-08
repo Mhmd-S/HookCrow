@@ -9,10 +9,9 @@ const DOWNLOAD_TIMEOUT_MS = 120_000
 /**
  * Ingest one TikTok Creative Center ad.
  *
- * Unlike the organic TikTok path (which embeds and stores no mp4), Creative
- * Center ads have no public post to embed — the only playable artifact is a
- * SIGNED CDN url that expires. So the mp4 and poster are copied into our own
- * storage at ingest time and served from there.
+ * Like the organic TikTok path, the mp4 and poster are copied into our own
+ * storage at ingest time and served from there. The difference: the source is
+ * a SIGNED CDN url that expires, so it is downloaded before any row exists.
  */
 export async function ingestCreativeCenterAd(
   ad: CreativeCenterAd,

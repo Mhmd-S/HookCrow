@@ -59,6 +59,16 @@ const visualNotes = computed(() => {
   return notes
 })
 
+// Long transcripts push the reusable script far down on a phone; fold them.
+const TRANSCRIPT_FOLD = 240
+const transcriptLong = computed(() => transcript.value.length > TRANSCRIPT_FOLD)
+const transcriptOpen = ref(false)
+
+// With a script to read, the visual notes are secondary: folded on phones,
+// always open from md. Silent segments keep them open — they are the content.
+const notesFoldable = computed(() => !!(transcript.value || blueprint.value))
+const notesOpen = ref(false)
+
 const copied = ref(false)
 function copyBlueprint() {
   if (!blueprint.value) return
@@ -79,63 +89,96 @@ function copyBlueprint() {
 
     <div class="flex-1 min-w-0 p-4 space-y-3">
       <!-- Header -->
-      <header class="flex items-center gap-2 flex-wrap">
-        <span
-          class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider"
-          :class="[theme.text, theme.chipBg]"
-        >
-          {{ segment.label }}
-        </span>
-        <component
-          :is="seekable ? 'button' : 'span'"
-          class="text-xs tabular-nums text-muted"
-          :class="seekable ? 'hover:text-default hover:underline cursor-pointer' : ''"
-          v-bind="seekable ? { type: 'button', 'aria-label': `Play from ${timeRange}` } : {}"
-          @click="seekable && emit('seek', segment.start_time)"
-        >
-          {{ timeRange }}
-        </component>
-        <p v-if="skeletalLogicSegment?.goal" class="flex-1 min-w-0 text-xs text-dimmed truncate" :title="skeletalLogicSegment.goal">
+      <header class="space-y-1.5">
+        <div class="flex items-center gap-2">
+          <span
+            class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider"
+            :class="[theme.text, theme.chipBg]"
+          >
+            {{ segment.label }}
+          </span>
+          <!-- Seek pill: the visible pill is small, the ::after hit area is 44px tall -->
+          <button
+            v-if="seekable"
+            type="button"
+            class="relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2.5 rounded-full text-xs font-medium tabular-nums text-toned bg-elevated hover:bg-accented active:bg-accented transition-colors after:absolute after:-inset-y-2 after:-inset-x-1 after:content-['']"
+            :aria-label="`Play from ${timeRange}`"
+            @click="emit('seek', segment.start_time)"
+          >
+            <UIcon name="i-ph-play-fill" class="w-3.5 h-3.5" :class="theme.text" />
+            {{ timeRange }}
+          </button>
+          <span v-else class="text-xs tabular-nums text-muted">{{ timeRange }}</span>
+        </div>
+        <p v-if="skeletalLogicSegment?.goal" class="text-sm text-muted leading-snug">
           {{ skeletalLogicSegment.goal }}
         </p>
       </header>
 
       <!-- Two lanes: what runs in the ad, and the reusable version -->
-      <div v-if="transcript || blueprint" class="grid gap-3" :class="transcript && blueprint ? 'md:grid-cols-2' : ''">
-        <div v-if="transcript">
-          <p class="text-[10px] font-semibold uppercase tracking-wider text-dimmed mb-1.5">What they say</p>
-          <blockquote class="text-sm leading-relaxed text-toned">
+      <div v-if="transcript || blueprint" class="grid gap-4" :class="transcript && blueprint ? 'md:grid-cols-2' : ''">
+        <div v-if="transcript" class="min-w-0">
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-dimmed mb-1.5">What they say</p>
+          <blockquote
+            class="text-[15px] md:text-sm leading-relaxed text-toned break-words"
+            :class="transcriptLong && !transcriptOpen ? 'line-clamp-4 md:line-clamp-none' : ''"
+          >
             “{{ transcript }}”
           </blockquote>
+          <button
+            v-if="transcriptLong"
+            type="button"
+            class="md:hidden mt-1 -ml-1 inline-flex items-center gap-1 h-11 px-1 text-sm font-medium text-primary"
+            :aria-expanded="transcriptOpen"
+            @click="transcriptOpen = !transcriptOpen"
+          >
+            {{ transcriptOpen ? 'Show less' : 'Show full transcript' }}
+            <UIcon :name="transcriptOpen ? 'i-ph-caret-up' : 'i-ph-caret-down'" class="w-3.5 h-3.5" />
+          </button>
         </div>
-        <div v-if="blueprint" class="relative">
-          <p class="text-[10px] font-semibold uppercase tracking-wider text-dimmed mb-1.5">Make it yours</p>
+        <div v-if="blueprint" class="min-w-0">
+          <div class="flex items-center justify-between gap-2 mb-1.5 -mt-2">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-dimmed">Make it yours</p>
+            <UButton
+              :icon="copied ? 'i-ph-check' : 'i-ph-copy-simple'"
+              size="sm"
+              variant="ghost"
+              :color="copied ? 'success' : 'neutral'"
+              class="h-9 -mr-2"
+              :aria-label="copied ? 'Copied' : `Copy ${segment.label} script`"
+              @click="copyBlueprint"
+            >
+              {{ copied ? 'Copied' : 'Copy' }}
+            </UButton>
+          </div>
           <div
-            class="font-mono text-[13px] leading-relaxed bg-muted rounded-lg p-3 pr-9 ring-1 ring-default whitespace-pre-wrap text-toned"
+            class="font-mono text-[13px] leading-relaxed bg-muted rounded-lg p-3 ring-1 ring-default whitespace-pre-wrap break-words text-toned"
             v-html="highlightPlaceholders(blueprint)"
           />
-          <UButton
-            :icon="copied ? 'i-ph-check' : 'i-ph-copy-simple'"
-            size="xs"
-            variant="ghost"
-            color="neutral"
-            class="absolute top-6 right-1.5"
-            :class="copied ? 'text-success!' : ''"
-            :aria-label="copied ? 'Copied' : 'Copy this segment'"
-            @click="copyBlueprint"
-          />
         </div>
       </div>
 
-      <!-- Silent segment: visuals carry it -->
-      <div v-if="visualNotes.length" class="space-y-1" :class="transcript || blueprint ? 'pt-2 border-t border-muted' : ''">
-        <p v-for="note in visualNotes" :key="note.label" class="text-xs text-muted leading-relaxed">
-          <span class="font-semibold text-dimmed uppercase tracking-wide text-[10px]">{{ note.label }}</span>
-          <span class="ml-1.5">{{ note.text }}</span>
-        </p>
+      <!-- Visual notes. Silent segment: visuals carry it -->
+      <div v-if="visualNotes.length" :class="notesFoldable ? 'pt-1 md:pt-3 border-t border-muted' : ''">
+        <button
+          v-if="notesFoldable"
+          type="button"
+          class="md:hidden -ml-1 inline-flex items-center gap-1 h-11 px-1 text-sm font-medium text-muted"
+          :aria-expanded="notesOpen"
+          @click="notesOpen = !notesOpen"
+        >
+          <UIcon :name="notesOpen ? 'i-ph-caret-up' : 'i-ph-caret-down'" class="w-3.5 h-3.5" />
+          {{ notesOpen ? 'Hide visual notes' : `Show visual notes (${visualNotes.length})` }}
+        </button>
+        <div class="space-y-1.5" :class="notesFoldable && !notesOpen ? 'hidden md:block' : ''">
+          <p v-for="note in visualNotes" :key="note.label" class="text-[13px] md:text-xs text-muted leading-relaxed break-words">
+            <span class="font-semibold text-dimmed uppercase tracking-wide text-[11px] md:text-[10px]">{{ note.label }}</span>
+            <span class="ml-1.5">{{ note.text }}</span>
+          </p>
+        </div>
       </div>
 
-      <p v-if="!transcript && !blueprint && !visualNotes.length" class="text-xs text-dimmed italic">
+      <p v-if="!transcript && !blueprint && !visualNotes.length" class="text-sm md:text-xs text-dimmed italic">
         No script for this segment — it plays visually.
       </p>
     </div>

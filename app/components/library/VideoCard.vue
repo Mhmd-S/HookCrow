@@ -16,15 +16,11 @@ const emit = defineEmits<{
 
 const { getVideoUrl, getPosterUrl } = useVideos()
 
-const isEmbed = computed(() =>
-  !props.video.video_path && props.video.platform === 'TikTok' && !!props.video.source_url
+// Prefer a still poster; fall back to the hosted mp4's first frame.
+const posterUrl = computed(() => getPosterUrl(props.video))
+const videoUrl = computed(() =>
+  props.video.video_path ? getVideoUrl(props.video.video_path) : null
 )
-
-const thumbnailUrl = computed(() => {
-  if (isEmbed.value) return getPosterUrl(props.video)
-  if (!props.video.video_path) return null
-  return getVideoUrl(props.video.video_path)
-})
 
 const statusColor = computed(() => {
   return props.video.status === 'complete' ? 'success' : 'neutral'
@@ -55,14 +51,14 @@ const formattedDate = computed(() => {
         class="w-12 h-16 rounded bg-[var(--ui-bg-muted)] flex-shrink-0 overflow-hidden"
       >
         <img
-          v-if="thumbnailUrl && isEmbed"
-          :src="thumbnailUrl"
+          v-if="posterUrl"
+          :src="posterUrl"
           class="w-full h-full object-cover"
           :alt="video.title || `Recipe by ${video.creator_handle || 'creator'}`"
         />
         <video
-          v-else-if="thumbnailUrl"
-          :src="thumbnailUrl"
+          v-else-if="videoUrl"
+          :src="videoUrl"
           class="w-full h-full object-cover"
           muted
           preload="metadata"

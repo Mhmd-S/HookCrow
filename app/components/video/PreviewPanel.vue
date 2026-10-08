@@ -6,17 +6,14 @@ interface Props {
   segments: Segment[]
   currentTime?: number
   duration?: number
-  isEmbed?: boolean
-  sourceUrl?: string
-  thumbnailUrl?: string
+  // Shown when videoSrc is empty (row has no hosted mp4 yet).
+  posterUrl?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   currentTime: 0,
   duration: 0,
-  isEmbed: false,
-  sourceUrl: '',
-  thumbnailUrl: undefined
+  posterUrl: undefined
 })
 
 const emit = defineEmits<{
@@ -57,13 +54,12 @@ function handleDurationChange(duration: number) {
   emit('update:duration', duration)
 }
 
+// No-op when there is no hosted video (playerRef is null).
 function handleSeek(time: number) {
-  if (props.isEmbed) return // no-op for embed rows
   playerRef.value?.seek(time)
 }
 
 function handleSegmentSeek(segment: Segment) {
-  if (props.isEmbed) return
   playerRef.value?.seek(segment.start_time)
 }
 
@@ -79,13 +75,8 @@ defineExpose({
 
 <template>
   <div class="h-full flex flex-col">
-    <VideoTikTokEmbed
-      v-if="isEmbed && sourceUrl"
-      :url="sourceUrl"
-      :poster="thumbnailUrl"
-    />
     <VideoPlayer
-      v-else
+      v-if="videoSrc"
       ref="playerRef"
       :src="videoSrc"
       :segments="segments"
@@ -93,5 +84,21 @@ defineExpose({
       @durationchange="handleDurationChange"
       @segment-change="emit('segmentChange', $event)"
     />
+    <!-- No mp4 in storage yet: poster + pointer to the admin video backfill. -->
+    <div
+      v-else
+      class="relative w-full max-w-[340px] mx-auto aspect-[9/16] bg-neutral-950 rounded-lg overflow-hidden"
+    >
+      <img
+        v-if="posterUrl"
+        :src="posterUrl"
+        alt="Video thumbnail"
+        class="w-full h-full object-cover"
+      />
+      <div class="absolute inset-x-0 bottom-0 flex items-center gap-2 p-3 bg-black/70 text-white text-xs">
+        <UIcon name="i-ph-video-camera-slash" class="w-4 h-4 shrink-0" />
+        <span>Video not hosted yet — run "Backfill videos" in the admin dashboard.</span>
+      </div>
+    </div>
   </div>
 </template>

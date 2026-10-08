@@ -1,6 +1,6 @@
 import type { Json } from '~/types/database'
-import { readFile } from 'node:fs/promises'
 import { extractThumbnailFromVideo } from '~~/server/utils/audio'
+import type { StoredTikTokVideo } from '~~/server/utils/tiktokStore'
 
 const log = createLogger('ingest-tiktok')
 
@@ -66,7 +66,7 @@ export async function ingestTikTokUrl(
       creator_handle: authorName ?? null,
       thumbnail_url: thumbnailUrl ?? null,
       title: title ?? null,
-      video_path: null,
+      video_path: null, // set once the mp4 is stored (below)
       status: 'draft',
       created_by: deps.createdBy ?? null,
     })
@@ -81,20 +81,13 @@ export async function ingestTikTokUrl(
   const videoId = video.id
   log.info('Video row created', { videoId, url })
 
-  // Download temp mp4 → analyze → cleanup
-  let downloadResult: Awaited<ReturnType<typeof downloadTikTokToTemp>> | null = null
+  // Download mp4 → store in `videos` bucket → analyze. The stored copy is what
+  // our player serves; the size check (stub / bucket limit) happens in the util.
+  let stored: StoredTikTokVideo | null = null
 
   try {
-    downloadResult = await downloadTikTokToTemp(url)
-    const videoBuffer = await readFile(downloadResult.path)
-
-    // tikwm sometimes returns a ~120KB error payload instead of the mp4;
-    // Gemini then fails file processing. Fail fast with a clear reason.
-    if (videoBuffer.length < 100 * 1024) {
-      throw new Error(`Download too small (${(videoBuffer.length / 1024).toFixed(0)}KB) — resolver returned a stub, not the video`)
-    }
-
-    log.info('Downloaded TikTok video to temp', { videoId, sizeMB: (videoBuffer.length / (1024 * 1024)).toFixed(2) })
+    stored = await downloadAndStoreTikTok(url, deps.supabase)
+    const videoBuffer = stored.buffer
 
     // Poster: TikTok's oEmbed thumbnail_url is a signed CDN link that 403s after
     // ~30 days, so it cannot be the durable poster. We already hold the mp4 here
@@ -123,12 +116,12 @@ export async function ingestTikTokUrl(
       config: deps.config,
       videoId,
       videoBuffer,
-      durationSeconds: undefined,
+      durationSeconds: stored.durationSeconds ?? undefined,
       existingTitle: null,
     })
 
     // Lo-fi publish gate (discovery only): read the analysis result and decide is_published.
-    const patch: Record<string, unknown> = { status: 'complete' }
+    const patch: Record<string, unknown> = { status: 'complete', video_path: stored.videoPath }
     if (thumbnailPath) {
       // Drop the expiring CDN url once we have a durable frame of our own.
       patch.thumbnail_path = thumbnailPath
@@ -145,7 +138,10 @@ export async function ingestTikTokUrl(
       log.info('Lo-fi gate', { videoId, lofi })
     }
 
-    await deps.supabase.from('videos').update(patch).eq('id', videoId)
+    // Checked: if this fails the row has no video_path and the stored mp4 is
+    // orphaned, so treat it as a failed ingest and roll both back.
+    const { error: patchErr } = await deps.supabase.from('videos').update(patch).eq('id', videoId)
+    if (patchErr) throw new Error(`Failed to finalize video row: ${patchErr.message}`)
 
     log.info('Ingestion complete', { videoId })
     return { status: 'ingested', videoId }
@@ -162,10 +158,9 @@ export async function ingestTikTokUrl(
       log.error('Failed to roll back video row', deleteErr, { videoId })
     }
 
+    // Don't pay to store an mp4 that no row points at.
+    if (stored) await stored.remove()
+
     return { status: 'failed', videoId, error: message }
-  } finally {
-    if (downloadResult) {
-      await downloadResult.cleanup()
-    }
   }
 }

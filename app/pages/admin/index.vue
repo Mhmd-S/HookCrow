@@ -35,6 +35,14 @@ const thumbBackfillStats = ref<{ processed: number; remaining: number; errors: n
 })
 const thumbBackfillMessage = ref<string | null>(null)
 
+const videoBackfillRunning = ref(false)
+const videoBackfillStats = ref<{ processed: number; remaining: number; errors: number }>({
+  processed: 0,
+  remaining: 0,
+  errors: 0
+})
+const videoBackfillMessage = ref<string | null>(null)
+
 async function runBackfill() {
   if (backfillRunning.value) return
   backfillRunning.value = true
@@ -105,6 +113,51 @@ async function runThumbBackfill() {
     thumbBackfillMessage.value = err instanceof Error ? err.message : 'Thumbnail backfill failed'
   } finally {
     thumbBackfillRunning.value = false
+  }
+}
+
+async function runVideoBackfill() {
+  if (videoBackfillRunning.value) return
+  videoBackfillRunning.value = true
+  videoBackfillStats.value = { processed: 0, remaining: 0, errors: 0 }
+  videoBackfillMessage.value = null
+
+  let firstResponse: { processed: number; remaining: number; errors: unknown[] } | null = null
+
+  try {
+    // Loop until no rows are left past the failed ones, or 50 batches. Failed
+    // rows stay without a video, so `offset` skips them instead of retrying.
+    for (let i = 0; i < 50; i++) {
+      const result = await $fetch<{ processed: number; remaining: number; errors: Array<{ id: string; error: string }> }>(
+        '/api/admin/backfill-videos',
+        {
+          method: 'POST',
+          body: { batchSize: 3, offset: videoBackfillStats.value.errors },
+          headers: authHeaders()
+        }
+      )
+      if (i === 0) firstResponse = result
+      videoBackfillStats.value = {
+        processed: videoBackfillStats.value.processed + result.processed,
+        remaining: result.remaining,
+        errors: videoBackfillStats.value.errors + result.errors.length
+      }
+      if (result.remaining === 0 || (result.processed === 0 && result.errors.length === 0)) break
+    }
+
+    const { processed, remaining, errors } = videoBackfillStats.value
+    if (processed === 0 && errors === 0 && firstResponse?.remaining === 0) {
+      videoBackfillMessage.value = 'All videos are already hosted — nothing to backfill.'
+    } else if (errors > 0 && processed === 0) {
+      videoBackfillMessage.value = `Failed: ${errors} errors. Check server logs (TikTok resolver or storage upload).`
+    } else {
+      videoBackfillMessage.value = `Done: ${processed} videos hosted${errors > 0 ? `, ${errors} errors` : ''}${remaining > 0 ? `, ${remaining} still pending` : ''}.`
+    }
+    if (processed > 0) await loadVideos()
+  } catch (err) {
+    videoBackfillMessage.value = err instanceof Error ? err.message : 'Video backfill failed'
+  } finally {
+    videoBackfillRunning.value = false
   }
 }
 
@@ -264,6 +317,20 @@ const freeCount = computed(() => videos.value.filter(v => !v.is_premium).length)
               </span>
             </template>
           </UButton>
+          <UButton
+            variant="ghost"
+            size="sm"
+            icon="i-ph-film-strip"
+            :loading="videoBackfillRunning"
+            @click="runVideoBackfill"
+          >
+            Backfill videos
+            <template v-if="videoBackfillRunning || videoBackfillStats.processed > 0 || videoBackfillStats.errors > 0">
+              <span class="text-xs text-muted">
+                ({{ videoBackfillStats.processed }} done{{ videoBackfillStats.remaining > 0 ? `, ${videoBackfillStats.remaining} left` : '' }}{{ videoBackfillStats.errors > 0 ? `, ${videoBackfillStats.errors} err` : '' }})
+              </span>
+            </template>
+          </UButton>
           <UButton to="/admin/recipes/new" variant="ghost" size="sm" icon="i-ph-plus">
             Upload Video
           </UButton>
@@ -354,6 +421,16 @@ const freeCount = computed(() => videos.value.filter(v => !v.is_premium).length)
         :close-button="{ icon: 'i-ph-x', color: 'neutral', variant: 'link' }"
         class="mb-6"
         @close="thumbBackfillMessage = null"
+      />
+
+      <!-- Video Backfill Result -->
+      <UAlert
+        v-if="videoBackfillMessage"
+        :color="videoBackfillStats.errors > 0 && videoBackfillStats.processed === 0 ? 'error' : 'info'"
+        :title="videoBackfillMessage"
+        :close-button="{ icon: 'i-ph-x', color: 'neutral', variant: 'link' }"
+        class="mb-6"
+        @close="videoBackfillMessage = null"
       />
 
       <!-- Loading State -->

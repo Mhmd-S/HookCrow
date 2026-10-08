@@ -12,7 +12,7 @@ const route = useRoute()
 const router = useRouter()
 const videoId = route.params.id as string
 
-const { fetchVideo, updateVideo, getVideoUrl } = useVideos()
+const { fetchVideo, updateVideo, getVideoUrl, getPosterUrl } = useVideos()
 const { upsertSegments } = useSegments()
 const { logicFlows, fetchLogicFlows } = useLogicFlows()
 const { authHeaders } = useAuth()
@@ -480,16 +480,12 @@ onBeforeUnmount(() => {
 
 onMounted(loadVideo)
 
-const isEmbed = computed(() =>
-  video.value ? !video.value.video_path && video.value.platform === 'TikTok' && !!video.value.source_url : false
-)
-
 const videoUrl = computed(() =>
   video.value && video.value.video_path ? getVideoUrl(video.value.video_path) : ''
 )
 
-const embedSourceUrl = computed(() => video.value?.source_url ?? '')
-const embedThumbnailUrl = computed(() => video.value?.thumbnail_url ?? undefined)
+// Shown in place of the player for rows with no hosted mp4 yet.
+const posterUrl = computed(() => (video.value ? getPosterUrl(video.value) ?? undefined : undefined))
 
 const videoTitle = computed(() => video.value?.title || video.value?.creator_handle || 'Untitled Video')
 </script>
@@ -705,9 +701,7 @@ const videoTitle = computed(() => video.value?.title || video.value?.creator_han
           <VideoPreviewPanel
             :video-src="videoUrl"
             :segments="segments"
-            :is-embed="isEmbed"
-            :source-url="embedSourceUrl"
-            :thumbnail-url="embedThumbnailUrl"
+            :poster-url="posterUrl"
             @update:segments="(s: Segment[]) => (segments = s)"
             @update:current-time="handleTimeUpdate"
             @update:duration="handleDurationChange"

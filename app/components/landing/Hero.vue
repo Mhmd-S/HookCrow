@@ -20,7 +20,11 @@ const SLOTS = [
   { pos: 'bottom-[14%] right-[3%]', rot: '-5deg', w: 'w-32 lg:w-36' },
 ] as const
 
-const MOBILE_FAN_ROTATIONS = [-20, 0, 22, 42] as const
+// Below lg the side gutters are too narrow for the floating cards, so two small
+// fans hang from the top corners instead. The section reserves top padding for
+// them (pt-28 / md:pt-36), so the headline always starts below the fans. The
+// steepest outward tilt sets how far a fan reaches down; keep it small.
+const MOBILE_FAN_ROTATIONS = [-12, 0, 20, 38] as const
 
 const floatingCards = computed(() => {
   return props.videos.slice(0, SLOTS.length).map((video, i) => ({
@@ -73,17 +77,17 @@ function submit() {
 </script>
 
 <template>
-  <section class="relative overflow-hidden rounded-3xl bg-default ring-1 ring-default px-6 md:px-12 py-18 md:py-26">
+  <section class="relative overflow-hidden rounded-3xl bg-default ring-1 ring-default px-6 md:px-12 pt-28 pb-16 md:pt-36 md:pb-20 lg:py-26">
     <div
       class="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 h-[60%] bg-gradient-radial from-indigo-50/60 via-transparent to-transparent blur-3xl z-0"
       aria-hidden="true"
     />
 
-    <div class="md:hidden absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+    <div class="lg:hidden absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
       <div
         v-for="({ video, rot }, i) in mobileLeftFan"
         :key="'ml-' + video.id"
-        class="absolute top-6 left-5 w-12 origin-top-left rounded-md shadow-md ring-1 ring-default bg-default overflow-hidden"
+        class="absolute top-3 left-4 md:top-5 md:left-7 w-11 md:w-14 origin-top-left rounded-md shadow-md ring-1 ring-default bg-default overflow-hidden"
         :style="{ transform: `rotate(${-rot}deg)`, zIndex: 10 - i }"
       >
         <div class="relative aspect-9/16 bg-neutral-100">
@@ -101,7 +105,7 @@ function submit() {
       <div
         v-for="({ video, rot }, i) in mobileRightFan"
         :key="'mr-' + video.id"
-        class="absolute top-6 right-5 w-12 origin-top-right rounded-md shadow-md ring-1 ring-default bg-default overflow-hidden"
+        class="absolute top-3 right-4 md:top-5 md:right-7 w-11 md:w-14 origin-top-right rounded-md shadow-md ring-1 ring-default bg-default overflow-hidden"
         :style="{ transform: `rotate(${-rot}deg)`, zIndex: 10 - i }"
       >
         <div class="relative aspect-9/16 bg-neutral-100">
@@ -118,7 +122,7 @@ function submit() {
       </div>
     </div>
 
-    <div class="hidden md:block absolute inset-0 pointer-events-none" aria-hidden="true">
+    <div class="hidden lg:block absolute inset-0 pointer-events-none" aria-hidden="true">
       <div
         v-for="{ video, slot } in floatingCards"
         :key="video.id"
