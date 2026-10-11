@@ -9,7 +9,9 @@ export default defineEventHandler(async (event) => {
 
   const { data: { user } } = await supabase.auth.getUser(token)
   if (user) {
-    await supabase.auth.admin.signOut(token)
+    // 'local' ends only this session. The default ('global') would also sign the user
+    // out of every other app that shares this Supabase project's login pool.
+    await supabase.auth.admin.signOut(token, 'local')
   }
 
   return { success: true }
